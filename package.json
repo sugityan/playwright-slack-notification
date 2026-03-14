@@ -1,0 +1,30 @@
+{
+  "name": "@sugityan/playwright-slack-notification",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "scripts": {
+    "clean": "rm -rf lib",
+    "build": "npm run clean && tsc -p ./tsconfig.json",
+    "prepack": "npm run build",
+    "test": "node --experimental-strip-types --test"
+  },
+  "files": [
+    "lib/**/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugityan/playwright-slack-notification.git"
+  },
+  "keywords": [],
+  "author": "sugityan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sugityan/playwright-slack-notification/issues"
+  },
+  "homepage": "https://github.com/sugityan/playwright-slack-notification#readme",
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}
