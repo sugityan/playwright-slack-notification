@@ -107,3 +107,7 @@ dist
 .DS_Store
 lib
 *.tgz
+
+# Tutorial folder
+# Delete this one
+testing-package

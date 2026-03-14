@@ -1,9 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-
 import { helloWorld, goodBye } from "../src/index.ts";
-
-// TODO: なにこれ？
 import npmPackage from "../src/index.ts";
 
 describe('NPM Package', () => {
