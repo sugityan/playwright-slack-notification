@@ -43,7 +43,7 @@ jobs:
         if: secrets.SLACK_WEBHOOK_URL != '' && steps.unit.outcome == 'failure' && steps.e2e.outcome != 'failure' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"
+        run: 'node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"'
 
       - name: Fail job if any tests failed
         if: steps.unit.outcome == 'failure' || steps.e2e.outcome == 'failure'
