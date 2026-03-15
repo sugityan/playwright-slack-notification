@@ -34,9 +34,7 @@ project-root/
 │   ├── slackClient.ts    # Handles communication with Slack API
 │   └── utils.ts          # Utility functions (e.g., validation, logging)
 ├── tests/
-│   ├── index.test.ts     # Tests for the main entry point
-│   ├── slackClient.test.ts # Tests for Slack client
-│   └── utils.test.ts     # Tests for utility functions
+│   └── index.test.js     # Current test suite for public API behavior
 ├── lib/                  # Compiled JavaScript files
 ├── package.json          # Package metadata
 ├── tsconfig.json         # TypeScript configuration
@@ -96,9 +94,9 @@ interface NotificationOptions {
 
 ### 6. Testing Strategy
 - **Unit Tests**:
-  - Test individual modules (e.g., `slackClient`, `utils`).
+  - Add focused tests for individual modules (e.g., `slackClient`, `utils`) as coverage expands.
 - **Integration Tests**:
-  - Test the full flow of sending a notification to Slack.
+  - Validate end-to-end notification behavior from the package entry point.
 - **Mocking**:
   - Use libraries like `nock` to mock Slack API responses.
 

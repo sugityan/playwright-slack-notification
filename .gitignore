@@ -111,3 +111,7 @@ lib
 # Tutorial folder
 # Delete this one
 testing-package
+
+# Playwright test output
+playwright-report
+test-results

@@ -1,10 +1,10 @@
-import { ValidationError } from './errors.js';
-import { sendSlackWebhook } from './slackClient.js';
-import type { NotificationOptions, SlackWebhookPayload } from './types.js';
-import { getEnv, validateNonEmptyString, validateWebhookUrl } from './utils.js';
+import { ValidationError } from './errors.ts';
+import { sendSlackWebhook } from './slackClient.ts';
+import type { NotificationOptions, SlackWebhookPayload } from './types.ts';
+import { getEnv, validateNonEmptyString, validateWebhookUrl } from './utils.ts';
 
-export type { NotificationOptions, SlackAttachment, SlackBlock } from './types.js';
-export { NetworkError, SlackApiError, SlackNotificationError, ValidationError } from './errors.js';
+export type { NotificationOptions, SlackAttachment, SlackBlock } from './types.ts';
+export { NetworkError, SlackApiError, SlackNotificationError, ValidationError } from './errors.ts';
 
 /**
  * Send a notification to Slack via Incoming Webhooks.
@@ -25,6 +25,10 @@ export async function sendNotification(message: string, options: NotificationOpt
     attachments: options.attachments,
   };
 
+  // Defaults are tuned for CI/API usage:
+  // - timeoutMs: avoid hanging too long on network stalls
+  // - retries: recover from transient Slack/network issues
+  // - retryDelayMs: short backoff to reduce immediate retry pressure
   const timeoutMs = options.timeoutMs ?? 10_000;
   const retries = options.retries ?? 2;
   const retryDelayMs = options.retryDelayMs ?? 500;

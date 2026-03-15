@@ -8,7 +8,7 @@
     "clean": "rm -rf ./lib",
     "build": "npm run clean && tsc -p ./tsconfig.json",
     "prepack": "npm run build",
-    "test": "npm run build && node --test",
+    "test": "npm run build && node --experimental-strip-types --test tests/index.test.ts",
     "slack:test": "npm run build && node --env-file=.env ./scripts/slack-send.mjs"
   },
   "files": [
