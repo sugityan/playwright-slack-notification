@@ -22,4 +22,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - run: npm test
+      - name: Run tests
+        id: test
+        continue-on-error: true
+        run: npm test
+
+      - name: Notify Slack (only on push + failure)
+      # Add failure condition when E2E failure function is implemented
+      # `&& steps.test.outcome == 'failure'`
+        if: github.event_name == 'push' && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: node ./scripts/slack-send.mjs "CI failed: ${{ github.repository }} ${{ github.sha }}"
+
+      - name: Fail job if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
