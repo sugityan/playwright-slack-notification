@@ -1,4 +1,4 @@
-import { ValidationError } from './errors.js';
+import { ValidationError } from './errors.ts';
 
 export function getEnv(name: string): string | undefined {
   return process.env[name];
@@ -13,19 +13,18 @@ export function validateNonEmptyString(value: unknown, fieldName: string): asser
 export function validateWebhookUrl(url: string): void {
   validateNonEmptyString(url, 'webhookUrl');
 
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new ValidationError('webhookUrl must be a valid URL');
-  }
+  const parsed = (() => {
+    try {
+      return new URL(url);
+    } catch {
+      throw new ValidationError('webhookUrl must be a valid URL');
+    }
+  })();
 
   if (parsed.protocol !== 'https:') {
     throw new ValidationError('webhookUrl must use https');
   }
 
-  // Typical Slack Incoming Webhook host; allow custom hosts just in case.
-  // If you want to enforce strictly, tighten this check.
 }
 
 export async function sleep(ms: number): Promise<void> {

@@ -23,11 +23,15 @@ export class SlackApiError extends SlackNotificationError {
 
   readonly status: number;
   readonly responseBody?: string;
+  readonly code?: string;
+  readonly retryable?: boolean;
 
-  constructor(message: string, options: { status: number; responseBody?: string }) {
+  constructor(message: string, options: { status: number; responseBody?: string; code?: string; retryable?: boolean }) {
     super(message);
     this.status = options.status;
     this.responseBody = options.responseBody;
+    this.code = options.code;
+    this.retryable = options.retryable;
   }
 }
 
