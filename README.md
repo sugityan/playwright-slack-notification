@@ -65,6 +65,8 @@ Errors:
 
 1) Add a repository secret named `SLACK_WEBHOOK_URL`.
 
+Note: On PRs from forks, GitHub does not expose secrets to workflows, so Slack notifications are automatically skipped.
+
 2) Use a workflow like this (this repo already includes the same pattern in `.github/workflows/tests.yml`):
 
 ```yaml
@@ -72,6 +74,8 @@ name: Tests
 
 on:
 	push:
+		branches: [ main ]
+	pull_request:
 		branches: [ main ]
 
 jobs:
@@ -84,18 +88,65 @@ jobs:
 					node-version: 22.x
 			- run: npm ci
 
-			- name: Run tests
-				id: test
+			- name: Run unit tests
+				id: unit
 				continue-on-error: true
 				run: npm test
 
-			- name: Notify Slack (only on failure)
-				if: steps.test.outcome == 'failure'
+			- name: Install Playwright (Chromium)
+				run: npx playwright install --with-deps chromium
+
+			- name: Run E2E tests
+				id: e2e
+				continue-on-error: true
 				env:
 					SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-				run: node ./scripts/slack-send.mjs "CI failed: ${{ github.repository }} ${{ github.sha }}"
+				run: npm run test:e2e
 
-			- name: Fail job if tests failed
-				if: steps.test.outcome == 'failure'
+			# Unit failures are notified here.
+			# E2E failures are notified by the Playwright reporter when SLACK_WEBHOOK_URL is set.
+			- name: Notify Slack (unit tests only)
+				if: secrets.SLACK_WEBHOOK_URL != '' && steps.unit.outcome == 'failure' && steps.e2e.outcome != 'failure' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+				env:
+					SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+				run: node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"
+
+			- name: Fail job if any tests failed
+				if: steps.unit.outcome == 'failure' || steps.e2e.outcome == 'failure'
 				run: exit 1
 ```
+
+### Playwright E2E
+
+Install browsers (one-time):
+
+```bash
+npm run e2e:install
+```
+
+Run E2E tests:
+
+```bash
+npm run test:e2e
+```
+
+Run E2E tests and notify the result to Slack (local):
+
+```bash
+cp .env.example .env
+# set SLACK_WEBHOOK_URL in .env
+npm run test:e2e:slack
+
+# pass through Playwright CLI args
+npm run test:e2e:slack -- --headed
+```
+
+Slack notification on E2E failure:
+
+- If `SLACK_WEBHOOK_URL` is set, Playwright will load the built-in reporter at `e2e/slack-reporter.ts`.
+- When any E2E test fails, it sends a summary message via `sendNotification`.
+
+Environment variables:
+
+- `SLACK_WEBHOOK_URL`: required to send notifications.
+- `PLAYWRIGHT_SLACK_NOTIFY`: `failure` (default) or `always`.

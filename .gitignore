@@ -108,6 +108,11 @@ dist
 lib
 *.tgz
 
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
 # Tutorial folder
 # Delete this one
 testing-package

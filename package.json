@@ -9,7 +9,10 @@
     "build": "npm run clean && tsc -p ./tsconfig.json",
     "prepack": "npm run build",
     "test": "npm run build && node --test",
-    "slack:test": "npm run build && node --env-file=.env ./scripts/slack-send.mjs"
+    "slack:test": "npm run build && node --env-file=.env ./scripts/slack-send.mjs",
+    "e2e:install": "playwright install",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:slack": "node --env-file=.env ./scripts/e2e-run-with-slack.mjs"
   },
   "files": [
     "lib/**/*"
@@ -26,6 +29,7 @@
   },
   "homepage": "https://github.com/sugityan/playwright-slack-notification#readme",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^25.5.0",
     "typescript": "^5.9.3"
   }
