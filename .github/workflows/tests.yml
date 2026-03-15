@@ -2,9 +2,11 @@ name: Tests
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '**'
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,19 +24,27 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Run tests
-        id: test
+      - name: Run unit tests
+        id: unit
         continue-on-error: true
         run: npm test
 
-      - name: Notify Slack (only on push + failure)
-        if: github.event_name == 'push' && steps.test.outcome == 'failure'
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        id: e2e
+        continue-on-error: true
+        env:          
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: npm run test:e2e
+
+      - name: Notify Slack (unit tests only)        
+        if: ${{ steps.unit.outcome == 'failure' }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: node ./scripts/slack-send.mjs "CI failed: ${{ github.repository }} ${{ github.sha }}"
+        run: 'node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"'
 
-      - name: Fail job if tests failed
-        if: steps.test.outcome == 'failure'
+      - name: Fail job if any tests failed
+        if: steps.unit.outcome == 'failure' || steps.e2e.outcome == 'failure'
         run: exit 1
