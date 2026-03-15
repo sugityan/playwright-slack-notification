@@ -4,9 +4,7 @@ const reporters: any[] = process.env.CI
   ? [['github'], ['html', { open: 'never' }]]
   : [['list'], ['html', { open: 'never' }]];
 
-if (process.env.SLACK_WEBHOOK_URL && process.env.SLACK_WEBHOOK_URL.trim().length > 0) {
-  reporters.push(['./e2e/slack-reporter.ts']);
-}
+reporters.push(['./e2e/slack-reporter.ts']);
 
 export default defineConfig({
   testDir: './e2e',

@@ -21,9 +21,6 @@ if (!webhookUrl || webhookUrl.trim().length === 0) {
   process.exit(1);
 }
 
-// Always notify the overall result after the run.
-process.env.PLAYWRIGHT_SLACK_NOTIFY = process.env.PLAYWRIGHT_SLACK_NOTIFY ?? 'always';
-
 const extraArgs = process.argv.slice(2);
 
 const buildExit = await run('npm', ['run', 'build']);

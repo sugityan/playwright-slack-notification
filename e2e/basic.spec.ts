@@ -5,3 +5,7 @@ test('Should make failure', async ({ page }) => {
   await expect(page).toHaveTitle('Playwright');
   await expect(page.getByRole('heading', { name: 'Hello' })).toBeVisible();
 });
+
+test('Should make failure 2', async ({ page }) => {
+ throw new Error('Intentional failure for testing Slack notifications');
+});

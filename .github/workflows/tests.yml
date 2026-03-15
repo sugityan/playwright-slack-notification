@@ -35,14 +35,12 @@ jobs:
       - name: Run E2E tests
         id: e2e
         continue-on-error: true
-        env:
-          # For fork PRs, GitHub does not expose secrets, so this resolves to '' and notifications are skipped.
+        env:          
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: npm run test:e2e
 
-      - name: Notify Slack (unit tests only)
-        # On fork PRs, secrets are unavailable; this step will be skipped.
-        if: ${{ env.SLACK_WEBHOOK_URL != '' && steps.unit.outcome == 'failure' && steps.e2e.outcome != 'failure' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      - name: Notify Slack (unit tests only)        
+        if: ${{ steps.unit.outcome == 'failure' }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: 'node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"'

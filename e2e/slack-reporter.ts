@@ -7,6 +7,52 @@ type Failure = {
   error?: string;
 };
 
+function stripAnsi(text: string): string {
+  return text.replace(/\u001b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+function formatErrorSummary(error?: string): string | undefined {
+  if (!error) return undefined;
+
+  const cleaned = stripAnsi(error).replace(/\r/g, '');
+  const lines = cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return undefined;
+
+  const summary = lines
+    .filter((line) => !line.startsWith('at '))
+    .slice(0, 3)
+    .join(' | ');
+
+  return summary.length > 0 ? summary : lines[0];
+}
+
+function formatErrorDetails(error?: string): string | undefined {
+  if (!error) return undefined;
+
+  const cleaned = stripAnsi(error).replace(/\r/g, '').trim();
+  if (!cleaned) return undefined;
+
+  const lines = cleaned.split('\n');
+  const maxLines = 40;
+  const sliced = lines.slice(0, maxLines);
+  const truncatedByLines = lines.length > maxLines;
+  const joined = sliced.join('\n');
+
+  const maxChars = 2500;
+  const truncatedByChars = joined.length > maxChars;
+  const detail = truncatedByChars ? `${joined.slice(0, maxChars)}\n...(truncated)` : joined;
+
+  if (truncatedByLines && !truncatedByChars) {
+    return `${detail}\n...(truncated)`;
+  }
+
+  return detail;
+}
+
 export default class SlackOnFailureReporter implements Reporter {
   private failures: Failure[] = [];
 
@@ -56,8 +102,16 @@ export default class SlackOnFailureReporter implements Reporter {
         const where = [failure.project, failure.location].filter(Boolean).join(' ');
         lines.push(`- ${failure.title}${where ? ` (${where})` : ''}`);
         if (failure.error) {
-          const firstLine = failure.error.split('\n')[0].trim();
-          if (firstLine) lines.push(`  ${firstLine}`);
+          const summary = formatErrorSummary(failure.error);
+          if (summary) lines.push(`  reason: ${summary}`);
+
+          const details = formatErrorDetails(failure.error);
+          if (details) {
+            lines.push('  details:');
+            lines.push('```');
+            lines.push(details);
+            lines.push('```');
+          }
         }
       }
       if (this.failures.length > 5) {
