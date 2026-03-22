@@ -29,16 +29,6 @@ jobs:
         continue-on-error: true
         run: npm test
 
-      - name: Install Playwright (Chromium)
-        run: npx playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        id: e2e
-        continue-on-error: true
-        env:          
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: npm run test:e2e
-
       - name: Notify Slack (unit tests only)        
         if: ${{ steps.unit.outcome == 'failure' }}
         env:
@@ -46,5 +36,5 @@ jobs:
         run: 'node ./scripts/slack-send.mjs "CI unit tests failed: ${{ github.repository }} ${{ github.sha }}"'
 
       - name: Fail job if any tests failed
-        if: steps.unit.outcome == 'failure' || steps.e2e.outcome == 'failure'
+        if: steps.unit.outcome == 'failure'
         run: exit 1

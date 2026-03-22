@@ -28,6 +28,22 @@ describe('Package exports', () => {
 });
 
 describe('sendNotification', () => {
+  it('accepts webhookUrl option without env var', async () => {
+    const seen = { called: false };
+    globalThis.fetch = (async () => {
+      seen.called = true;
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+
+    await sendNotification('Hello from option', {
+      webhookUrl: SLACK_WEBHOOK_URL,
+      retries: 0,
+      retryDelayMs: 0,
+    });
+
+    assert.equal(seen.called, true);
+  });
+
   it('throws ValidationError when webhook URL is missing', async () => {
     await assert.rejects(() => sendNotification('hi'), (err: any) => {
       assert.equal(err?.name, 'ValidationError');
