@@ -12,7 +12,7 @@ npm i @sugityan/playwright-slack-notification
 
 ### 2. Slack Webhook URL を設定
 
-プロジェクトの**ルートディレクトリ**に `.env` ファイルを作成します：
+`.env` に Slack Incoming Webhook URL を設定します（`webhookUrl` をコードで直接渡す場合は省略可能です）：
 
 ```env
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR_WEBHOOK_URL
@@ -41,20 +41,20 @@ await sendNotification('Build finished', {
 
 ### 4. Playwright の結果を自動通知する
 
-#### 4-1. `.env` ファイルを読み込む
-
-Playwright が `.env` ファイルを読み込むよう設定する必要があります。`dotenv` をインストール：
+1) `.env` を読み込めるように `dotenv` をインストールします：
 
 ```bash
-npm install -D dotenv
+npm i -D dotenv
 ```
 
-`playwright.config.ts` で `.env` を読み込みます：
+2) この package が提供する Reporter を `playwright.config.ts` に設定します：
 
 ```ts
 // playwright.config.ts
 import { defineConfig } from '@playwright/test';
 import dotenv from 'dotenv';
+
+dotenv.config();
 
 // .env ファイルを読み込む
 dotenv.config();
@@ -74,13 +74,24 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['@sugityan/playwright-slack-notification/reporter', {
-      // 任意設定
+      // 失敗時のみ通知（デフォルト）
       notifyMode: 'failure', // 'failure' | 'always'
       channel: '#ci',
     }],
   ],
   // ... 他の設定
 });
+```
+
+`notifyMode` の指定:
+
+- `failure`: 失敗時のみ Slack 通知
+- `always`: 成功/失敗に関わらず Slack 通知
+
+3) Playwright を実行します：
+
+```bash
+npx playwright test
 ```
 
 ### 5. このリポジトリでの動作確認

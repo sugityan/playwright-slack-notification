@@ -85,4 +85,34 @@ describe('PlaywrightSlackReporter', () => {
 
     assert.equal(calls.count, 1);
   });
+
+  it('does not send on passed result when notifyMode is failure', async () => {
+    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+
+    const calls = { count: 0 };
+    globalThis.fetch = (async () => {
+      calls.count++;
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+
+    const reporter = new PlaywrightSlackReporter({ notifyMode: 'failure' });
+    await reporter.onEnd?.({ status: 'passed' } as any);
+
+    assert.equal(calls.count, 0);
+  });
+
+  it('sends on passed result when notifyMode is always', async () => {
+    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+
+    const calls = { count: 0 };
+    globalThis.fetch = (async () => {
+      calls.count++;
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+
+    const reporter = new PlaywrightSlackReporter({ notifyMode: 'always' });
+    await reporter.onEnd?.({ status: 'passed' } as any);
+
+    assert.equal(calls.count, 1);
+  });
 });
