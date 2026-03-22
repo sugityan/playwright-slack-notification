@@ -4,6 +4,16 @@
   "description": "",
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./reporter": {
+      "types": "./lib/types/reporter.d.ts",
+      "default": "./lib/reporter.js"
+    }
+  },
   "scripts": {
     "clean": "rm -rf ./lib",
     "build": "npm run clean && tsc -p ./tsconfig.json",

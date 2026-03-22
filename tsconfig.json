@@ -21,7 +21,7 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true
   },
-  "files": [
-    "./src/index.ts"
+  "include": [
+    "src/**/*.ts"
   ]
 }
