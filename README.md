@@ -12,11 +12,7 @@ npm i @sugityan/playwright-slack-notification
 
 ### 2. Slack Webhook URL を設定
 
-<<<<<<< HEAD
 `.env` に Slack Incoming Webhook URL を設定します（`webhookUrl` をコードで直接渡す場合は省略可能です）：
-=======
-プロジェクトの**ルートディレクトリ**に `.env` ファイルを作成します：
->>>>>>> main
 
 ```env
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR_WEBHOOK_URL
