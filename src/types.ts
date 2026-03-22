@@ -2,6 +2,9 @@ export type SlackBlock = Record<string, unknown>;
 export type SlackAttachment = Record<string, unknown>;
 
 export interface NotificationOptions {
+  /** Slack Incoming Webhook URL. If omitted, reads from process.env.SLACK_WEBHOOK_URL. */
+  webhookUrl?: string;
+
   /** Optional channel override. May be ignored depending on your Slack webhook configuration. */
   channel?: string;
 

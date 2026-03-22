@@ -1,10 +1,13 @@
 import { ValidationError } from './errors.ts';
+import { PlaywrightSlackReporter } from './playwrightReporter.ts';
 import { sendSlackWebhook } from './slackClient.ts';
 import type { NotificationOptions, SlackWebhookPayload } from './types.ts';
 import { getEnv, validateNonEmptyString, validateWebhookUrl } from './utils.ts';
 
 export type { NotificationOptions, SlackAttachment, SlackBlock } from './types.ts';
+export type { PlaywrightSlackNotifyMode, PlaywrightSlackReporterOptions } from './playwrightReporter.ts';
 export { NetworkError, SlackApiError, SlackNotificationError, ValidationError } from './errors.ts';
+export { PlaywrightSlackReporter } from './playwrightReporter.ts';
 
 /**
  * Send a notification to Slack via Incoming Webhooks.
@@ -12,9 +15,9 @@ export { NetworkError, SlackApiError, SlackNotificationError, ValidationError } 
 export async function sendNotification(message: string, options: NotificationOptions = {}): Promise<void> {
   validateNonEmptyString(message, 'message');
 
-  const webhookUrl = getEnv('SLACK_WEBHOOK_URL');
+  const webhookUrl = options.webhookUrl ?? getEnv('SLACK_WEBHOOK_URL');
   if (webhookUrl === undefined) {
-    throw new ValidationError('Missing Slack webhook URL. Set SLACK_WEBHOOK_URL');
+    throw new ValidationError('Missing Slack webhook URL. Set options.webhookUrl or SLACK_WEBHOOK_URL');
   }
   validateWebhookUrl(webhookUrl);
 
@@ -48,4 +51,5 @@ export async function sendNotification(message: string, options: NotificationOpt
 
 export default {
   sendNotification,
+  PlaywrightSlackReporter,
 };
