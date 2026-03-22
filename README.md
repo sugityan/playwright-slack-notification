@@ -12,31 +12,19 @@ npm i @sugityan/playwright-slack-notification
 
 ### 2. Slack Webhook URL を設定
 
-`.env` ファイルを作成します：
-
-```bash
-cp .env.example .env
-```
-
-`.env` に Slack Incoming Webhook URL を設定します（`webhookUrl` をコードで直接渡す場合は省略可能です）：
+プロジェクトの**ルートディレクトリ**に `.env` ファイルを作成します：
 
 ```env
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR_WEBHOOK_URL
 ```
-
 ### 3. 通常通知を送る
 
-アプリコードで以下のように呼び出します：
+アプリコードで以下のように呼び出します。環境変数 `SLACK_WEBHOOK_URL` が自動的に使用されます：
 
 ```ts
 import { sendNotification } from '@sugityan/playwright-slack-notification';
 
 await sendNotification('E2E tests passed ✅');
-
-// または webhookUrl を直接指定
-await sendNotification('E2E tests passed ✅', {
-  webhookUrl: 'https://hooks.slack.com/services/...',
-});
 ```
 
 `blocks` / `attachments` を使う場合：
@@ -53,26 +41,47 @@ await sendNotification('Build finished', {
 
 ### 4. Playwright の結果を自動通知する
 
-この package が提供する Reporter を `playwright.config.ts` に設定します：
+#### 4-1. `.env` ファイルを読み込む
+
+Playwright が `.env` ファイルを読み込むよう設定する必要があります。`dotenv` をインストール：
+
+```bash
+npm install -D dotenv
+```
+
+`playwright.config.ts` で `.env` を読み込みます：
 
 ```ts
 // playwright.config.ts
 import { defineConfig } from '@playwright/test';
-import { PlaywrightSlackReporter } from '@sugityan/playwright-slack-notification';
+import dotenv from 'dotenv';
 
+// .env ファイルを読み込む
+dotenv.config();
+
+export default defineConfig({
+  testDir: './tests',
+  // ... 他の設定
+});
+```
+
+#### 4-2. Reporter を設定
+
+Reporter を `playwright.config.ts` に設定します：
+
+```ts
 export default defineConfig({
   reporter: [
     ['list'],
-    [PlaywrightSlackReporter, {
+    ['@sugityan/playwright-slack-notification/reporter', {
       // 任意設定
       notifyMode: 'failure', // 'failure' | 'always'
       channel: '#ci',
     }],
   ],
+  // ... 他の設定
 });
 ```
-
-環境変数 `SLACK_WEBHOOK_URL` を設定した状態で Playwright を実行してください
 
 ### 5. このリポジトリでの動作確認
 
