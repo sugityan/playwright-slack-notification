@@ -22,6 +22,9 @@ export interface NotificationOptions {
 
   /** Delay between retries (ms). Default: 500 */
   retryDelayMs?: number;
+
+  /** Only send notifications in CI environments. Default: false */
+  ciOnly?: boolean;
 }
 
 export interface SlackWebhookPayload {

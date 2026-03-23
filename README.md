@@ -77,6 +77,8 @@ export default defineConfig({
       // 失敗時のみ通知（デフォルト）
       notifyMode: 'failure', // 'failure' | 'always'
       channel: '#ci',
+      // CI環境でのみ通知を送る（デフォルト: false）
+      ciOnly: true,
     }],
   ],
   // ... 他の設定
@@ -87,6 +89,18 @@ export default defineConfig({
 
 - `failure`: 失敗時のみ Slack 通知
 - `always`: 成功/失敗に関わらず Slack 通知
+
+`ciOnly` オプション:
+
+- `true`: CI環境でのみSlack通知を送る（ローカル環境では送信しない）
+- `false`: すべての環境でSlack通知を送る（デフォルト値）
+
+CI環境の判定は、`process.env.CI` が `'true'` または `'1'` かどうかで行われます。
+GitHub Actions, GitLab CI, CircleCI などの主要なCIサービスでは、この環境変数が自動的に設定されます。
+- `false`: すべての環境でSlack通知を送る（デフォルト値）
+
+CI環境の判定は、`process.env.CI` が `'true'` または `'1'` かどうかで行われます。
+GitHub Actions, GitLab CI, CircleCI などの主要なCIサービスでは、この環境変数が自動的に設定されます。
 
 3) Playwright を実行します：
 

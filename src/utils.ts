@@ -4,6 +4,11 @@ export function getEnv(name: string): string | undefined {
   return process.env[name];
 }
 
+export function isCI(): boolean {
+  const ciEnv = getEnv('CI');
+  return ciEnv === 'true' || ciEnv === '1';
+}
+
 export function validateNonEmptyString(value: unknown, fieldName: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new ValidationError(`${fieldName} must be a non-empty string`);
@@ -24,7 +29,6 @@ export function validateWebhookUrl(url: string): void {
   if (parsed.protocol !== 'https:') {
     throw new ValidationError('webhookUrl must use https');
   }
-
 }
 
 export async function sleep(ms: number): Promise<void> {

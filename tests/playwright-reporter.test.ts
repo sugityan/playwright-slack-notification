@@ -101,18 +101,50 @@ describe('PlaywrightSlackReporter', () => {
     assert.equal(calls.count, 0);
   });
 
-  it('sends on passed result when notifyMode is always', async () => {
-    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+    it('sends on passed result when notifyMode is always', async () => {
+     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+ 
+     const calls = { count: 0 };
+     globalThis.fetch = (async () => {
+       calls.count++;
+       return new Response('ok', { status: 200 });
+     }) as typeof fetch;
+ 
+     const reporter = new PlaywrightSlackReporter({ notifyMode: 'always' });
+     await reporter.onEnd?.({ status: 'passed' } as any);
+ 
+     assert.equal(calls.count, 1);
+   });
 
-    const calls = { count: 0 };
-    globalThis.fetch = (async () => {
-      calls.count++;
-      return new Response('ok', { status: 200 });
-    }) as typeof fetch;
+   it('does not send in local when ciOnly is true', async () => {
+     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+     delete process.env.CI; // Ensure we're not in CI
 
-    const reporter = new PlaywrightSlackReporter({ notifyMode: 'always' });
-    await reporter.onEnd?.({ status: 'passed' } as any);
+     const calls = { count: 0 };
+     globalThis.fetch = (async () => {
+       calls.count++;
+       return new Response('ok', { status: 200 });
+     }) as typeof fetch;
 
-    assert.equal(calls.count, 1);
-  });
+     const reporter = new PlaywrightSlackReporter({ ciOnly: true });
+     await reporter.onEnd?.({ status: 'failed' } as any);
+
+     assert.equal(calls.count, 0);
+   });
+
+   it('sends in CI when ciOnly is true', async () => {
+     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+     process.env.CI = 'true'; // Simulate CI environment
+
+     const calls = { count: 0 };
+     globalThis.fetch = (async () => {
+       calls.count++;
+       return new Response('ok', { status: 200 });
+     }) as typeof fetch;
+
+     const reporter = new PlaywrightSlackReporter({ ciOnly: true });
+     await reporter.onEnd?.({ status: 'failed' } as any);
+
+     assert.equal(calls.count, 1);
+   });
 });

@@ -2,7 +2,7 @@ import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/tes
 
 import { sendSlackWebhook } from './slackClient.ts';
 import type { SlackWebhookPayload } from './types.ts';
-import { validateWebhookUrl } from './utils.ts';
+import { validateWebhookUrl, isCI } from './utils.ts';
 
 export type PlaywrightSlackNotifyMode = 'failure' | 'always';
 
@@ -15,6 +15,7 @@ export interface PlaywrightSlackReporterOptions {
   timeoutMs?: number;
   retries?: number;
   retryDelayMs?: number;
+  ciOnly?: boolean;
 }
 
 type Failure = {
@@ -75,23 +76,24 @@ function resolveNotifyMode(optionsMode?: PlaywrightSlackNotifyMode): PlaywrightS
 export class PlaywrightSlackReporter implements Reporter {
   private readonly failures: Failure[] = [];
 
-  private readonly options: Required<
-    Pick<PlaywrightSlackReporterOptions, 'maxFailures' | 'maxDetailLines' | 'maxDetailChars' | 'timeoutMs' | 'retries' | 'retryDelayMs'>
-  > &
-    Pick<PlaywrightSlackReporterOptions, 'channel' | 'notifyMode'>;
+   private readonly options: Required<
+     Pick<PlaywrightSlackReporterOptions, 'maxFailures' | 'maxDetailLines' | 'maxDetailChars' | 'timeoutMs' | 'retries' | 'retryDelayMs'>
+   > &
+     Pick<PlaywrightSlackReporterOptions, 'channel' | 'notifyMode' | 'ciOnly'>;
 
-  constructor(options: PlaywrightSlackReporterOptions = {}) {
-    this.options = {
-      notifyMode: options.notifyMode,
-      maxFailures: options.maxFailures ?? 5,
-      maxDetailLines: options.maxDetailLines ?? 40,
-      maxDetailChars: options.maxDetailChars ?? 2500,
-      timeoutMs: options.timeoutMs ?? 10_000,
-      retries: options.retries ?? 2,
-      retryDelayMs: options.retryDelayMs ?? 500,
-      channel: options.channel,
-    };
-  }
+    constructor(options: PlaywrightSlackReporterOptions = {}) {
+      this.options = {
+        notifyMode: options.notifyMode,
+        maxFailures: options.maxFailures ?? 5,
+        maxDetailLines: options.maxDetailLines ?? 40,
+        maxDetailChars: options.maxDetailChars ?? 2500,
+        timeoutMs: options.timeoutMs ?? 10_000,
+        retries: options.retries ?? 2,
+        retryDelayMs: options.retryDelayMs ?? 500,
+        channel: options.channel,
+        ciOnly: options.ciOnly ?? false,
+      };
+    }
 
   onTestEnd(test: TestCase, result: TestResult): void {
     if (result.status !== 'failed' && result.status !== 'timedOut') return;
@@ -121,6 +123,11 @@ export class PlaywrightSlackReporter implements Reporter {
     const notifyMode = resolveNotifyMode(this.options.notifyMode);
     const shouldNotify = notifyMode === 'always' ? true : this.failures.length > 0 || result.status !== 'passed';
     if (!shouldNotify) return;
+    
+    // If ciOnly is true, only send notifications in CI environments
+    if (this.options.ciOnly && !isCI()) {
+      return;
+    }
 
     const header = `Playwright E2E result: ${result.status} (failures: ${this.failures.length})`;
 
