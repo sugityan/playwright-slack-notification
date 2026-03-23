@@ -27,6 +27,7 @@ export interface NotificationOptions {
 export interface SlackWebhookPayload {
   text: string;
   channel?: string;
+  thread_ts?: string;
   blocks?: SlackBlock[];
   attachments?: SlackAttachment[];
 }

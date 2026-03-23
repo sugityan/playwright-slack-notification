@@ -1,5 +1,6 @@
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
+import { sendSlackBotMessage } from './slackBotClient.ts';
 import { sendSlackWebhook } from './slackClient.ts';
 import type { SlackWebhookPayload } from './types.ts';
 import { validateWebhookUrl } from './utils.ts';
@@ -8,6 +9,10 @@ export type PlaywrightSlackNotifyMode = 'failure' | 'always';
 
 export interface PlaywrightSlackReporterOptions {
   notifyMode?: PlaywrightSlackNotifyMode;
+  showErrorDetails?: boolean;
+  errorDetailsInThread?: boolean;
+  botToken?: string;
+  botChannel?: string;
   maxFailures?: number;
   maxDetailLines?: number;
   maxDetailChars?: number;
@@ -78,11 +83,15 @@ export class PlaywrightSlackReporter implements Reporter {
   private readonly options: Required<
     Pick<PlaywrightSlackReporterOptions, 'maxFailures' | 'maxDetailLines' | 'maxDetailChars' | 'timeoutMs' | 'retries' | 'retryDelayMs'>
   > &
-    Pick<PlaywrightSlackReporterOptions, 'channel' | 'notifyMode'>;
+    Pick<PlaywrightSlackReporterOptions, 'channel' | 'notifyMode' | 'showErrorDetails' | 'errorDetailsInThread' | 'botToken' | 'botChannel'>;
 
   constructor(options: PlaywrightSlackReporterOptions = {}) {
     this.options = {
       notifyMode: options.notifyMode,
+      showErrorDetails: options.showErrorDetails ?? true,
+      errorDetailsInThread: options.errorDetailsInThread ?? false,
+      botToken: options.botToken,
+      botChannel: options.botChannel,
       maxFailures: options.maxFailures ?? 5,
       maxDetailLines: options.maxDetailLines ?? 40,
       maxDetailChars: options.maxDetailChars ?? 2500,
@@ -107,20 +116,17 @@ export class PlaywrightSlackReporter implements Reporter {
   }
 
   async onEnd(result: FullResult): Promise<void> {
-    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-    if (!webhookUrl || webhookUrl.trim().length === 0) return;
-
-    try {
-      validateWebhookUrl(webhookUrl);
-    } catch (err) {
-      console.warn('PlaywrightSlackReporter: invalid SLACK_WEBHOOK_URL');
-      console.warn(err);
-      return;
-    }
-
     const notifyMode = resolveNotifyMode(this.options.notifyMode);
     const shouldNotify = notifyMode === 'always' ? true : this.failures.length > 0 || result.status !== 'passed';
     if (!shouldNotify) return;
+
+    const botToken = (this.options.botToken ?? process.env.SLACK_BOT_TOKEN)?.trim();
+    const botChannel = (this.options.botChannel ?? process.env.SLACK_BOT_CHANNEL_ID ?? this.options.channel)?.trim();
+    const canUseBotThread = this.options.errorDetailsInThread && !!botToken && !!botChannel;
+
+    if (this.options.errorDetailsInThread && !canUseBotThread) {
+      console.warn('PlaywrightSlackReporter: errorDetailsInThread is enabled but Slack Bot config is missing. Set botToken/botChannel or SLACK_BOT_TOKEN/SLACK_BOT_CHANNEL_ID. Falling back to webhook inline details.');
+    }
 
     const header = `Playwright E2E result: ${result.status} (failures: ${this.failures.length})`;
 
@@ -143,10 +149,12 @@ export class PlaywrightSlackReporter implements Reporter {
         const where = [failure.project, failure.location].filter(Boolean).join(' ');
         lines.push(`- ${failure.title}${where ? ` (${where})` : ''}`);
 
-        const summary = formatErrorSummary(failure.error);
-        if (summary) lines.push(`  reason: ${summary}`);
+        if (this.options.showErrorDetails) {
+          const summary = formatErrorSummary(failure.error);
+          if (summary) lines.push(`  reason: ${summary}`);
+        }
 
-        if (failure.error) {
+        if (this.options.showErrorDetails && !canUseBotThread && failure.error) {
           const details = formatErrorDetails(
             failure.error,
             this.options.maxDetailLines,
@@ -171,11 +179,70 @@ export class PlaywrightSlackReporter implements Reporter {
     };
 
     try {
+      if (canUseBotThread && botToken && botChannel) {
+        const summary = await sendSlackBotMessage(
+          botToken,
+          {
+            channel: botChannel,
+            text: payload.text,
+          },
+          {
+            timeoutMs: this.options.timeoutMs,
+            retries: this.options.retries,
+            retryDelayMs: this.options.retryDelayMs,
+          },
+        );
+
+        if (this.options.showErrorDetails && this.failures.length > 0 && summary.ts) {
+        const detailLines: string[] = ['Failed test error reasons:'];
+
+        for (const failure of this.failures.slice(0, this.options.maxFailures)) {
+          const summary = formatErrorSummary(failure.error);
+          detailLines.push(`- ${summary ?? 'Unknown error'}`);
+        }
+
+        if (this.failures.length > this.options.maxFailures) {
+          detailLines.push(`...and ${this.failures.length - this.options.maxFailures} more`);
+        }
+
+        const detailPayload: SlackWebhookPayload = {
+          text: detailLines.join('\n'),
+          channel: botChannel,
+        };
+
+          await sendSlackBotMessage(
+            botToken,
+            {
+              channel: botChannel,
+              text: detailPayload.text,
+              threadTs: summary.ts,
+            },
+            {
+              timeoutMs: this.options.timeoutMs,
+              retries: this.options.retries,
+              retryDelayMs: this.options.retryDelayMs,
+            },
+          );
+        }
+        return;
+      }
+
+      const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+      if (!webhookUrl || webhookUrl.trim().length === 0) return;
+
+      try {
+        validateWebhookUrl(webhookUrl);
+      } catch (err) {
+        console.warn('PlaywrightSlackReporter: invalid SLACK_WEBHOOK_URL');
+        console.warn(err);
+        return;
+      }
+
       await sendSlackWebhook(webhookUrl, payload, {
-        timeoutMs: this.options.timeoutMs,
-        retries: this.options.retries,
-        retryDelayMs: this.options.retryDelayMs,
-      });
+          timeoutMs: this.options.timeoutMs,
+          retries: this.options.retries,
+          retryDelayMs: this.options.retryDelayMs,
+        });
     } catch (err) {
       console.warn('PlaywrightSlackReporter: failed to send notification');
       console.warn(err);
