@@ -146,8 +146,7 @@ export default defineConfig({
 
 **表示例（Webhook方式、`showErrorDetails: true`）:**
 
-
-<img src="Screenshot 2026-05-09 at 0.08.17.png" width="600" alt="Webhook通知例">
+<img src="assets/webhookURL_results_example.png" width="600" alt="Webhook通知例">
 
 Slack bot user でスレッド投稿する場合は、以下を設定してください。
 
