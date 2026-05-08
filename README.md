@@ -22,7 +22,7 @@ npm i @sugityan/playwright-slack-notification
 `.env` に Webhook URL を設定します（`webhookUrl` をコードで直接渡す場合は省略可能です）：
 
 ```env
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR_WEBHOOK_URL
+SLACK_WEBHOOK_URL=YOUR_WEBHOOK_URL
 ```
 
 #### B. Slack Bot Token 方式（スレッド投稿したい場合）
@@ -42,7 +42,7 @@ SLACK_BOT_CHANNEL_ID=C1234567890
 Bot 方式を使う場合、Webhook URL (`SLACK_WEBHOOK_URL`) は不要です。
 ### 3. 通常通知を送る
 
-アプリコードで以下のように呼び出します。環境変数 `SLACK_WEBHOOK_URL` が自動的に使用されます：
+以下のように呼び出します。
 
 ```ts
 import { sendNotification } from '@sugityan/playwright-slack-notification';
@@ -97,7 +97,9 @@ export default defineConfig({
       // 失敗時のみ通知（デフォルト）
       notifyMode: 'failure', // 'failure' | 'always'
 
-      // エラー内容（reason/details）を表示するか
+      // エラー詳細を表示するか（デフォルト: true）
+      // true: スタックトレース含む詳細を表示
+      // false: テスト名とロケーションのみ表示
       showErrorDetails: true,
 
       channel: '#ci',
@@ -136,8 +138,16 @@ export default defineConfig({
 
 `showErrorDetails` の指定（Webhook / Bot 共通）:
 
-- `true` (デフォルト): エラー内容を表示
-- `false`: エラー内容を非表示（テスト名や件数のみ通知）
+- `true` (デフォルト): エラーの詳細情報（スタックトレース含む）を表示
+  - Webhook方式: テスト名 + `details:` セクションにコードブロックでエラー全文を表示
+  - Bot Thread方式: メイン投稿はテスト名のみ、スレッドにエラーサマリーを投稿
+- `false`: エラーの詳細を非表示（テスト名とロケーションのみ通知）
+  - どちらの方式でもエラー内容は表示されません
+
+**表示例（Webhook方式、`showErrorDetails: true`）:**
+
+
+<img src="Screenshot 2026-05-09 at 0.08.17.png" width="600" alt="Webhook通知例">
 
 Slack bot user でスレッド投稿する場合は、以下を設定してください。
 

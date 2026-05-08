@@ -303,4 +303,41 @@ describe('PlaywrightSlackReporter', () => {
     assert.doesNotMatch(payloads[0].text, /reason:/);
     assert.doesNotMatch(payloads[0].text, /Expected:/);
   });
+
+  it('converts absolute file paths to relative paths', async () => {
+    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+
+    const seen = { body: '' };
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      seen.body = String(init?.body ?? '');
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+
+    const cwd = process.cwd();
+    const absolutePath = `${cwd}/apps/web/e2e/contact-form.spec.ts`;
+
+    const reporter = new PlaywrightSlackReporter();
+    reporter.onTestEnd?.(
+      {
+        titlePath: () => ['chromium', 'contact form', 'submit form'],
+        parent: { project: () => ({ name: 'web' }) },
+        location: { file: absolutePath, line: 114, column: 1 },
+      } as any,
+      {
+        status: 'failed',
+        error: {
+          message: 'Error: Form submission failed',
+        },
+      } as any,
+    );
+
+    await reporter.onEnd?.({ status: 'failed' } as any);
+
+    const payload = JSON.parse(seen.body) as { text: string };
+    assert.equal(typeof payload.text, 'string');
+    // Should contain relative path, not absolute path
+    assert.match(payload.text, /apps\/web\/e2e\/contact-form\.spec\.ts:114:1/);
+    // Should NOT contain the full absolute path
+    assert.doesNotMatch(payload.text, new RegExp(cwd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  });
 });
