@@ -33,6 +33,16 @@ function stripAnsi(text: string): string {
   return text.replace(/\u001b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*m/g, '');
 }
 
+function toRelativePath(absolutePath: string): string {
+  const cwd = process.cwd();
+  if (absolutePath.startsWith(cwd)) {
+    const relative = absolutePath.slice(cwd.length);
+    // Remove leading slash if present
+    return relative.startsWith('/') ? relative.slice(1) : relative;
+  }
+  return absolutePath;
+}
+
 function formatErrorSummary(error?: string): string | undefined {
   if (!error) return undefined;
 
@@ -50,6 +60,11 @@ function formatErrorSummary(error?: string): string | undefined {
     .join(' | ');
 
   return summary.length > 0 ? summary : lines[0];
+}
+
+function formatErrorSummaryForThread(error?: string): string {
+  const summary = formatErrorSummary(error);
+  return summary ?? 'Unknown error';
 }
 
 function formatErrorDetails(error: string, maxLines: number, maxChars: number): string | undefined {
@@ -108,7 +123,7 @@ export class PlaywrightSlackReporter implements Reporter {
     const title = test.titlePath().join(' › ');
     const project = test.parent.project()?.name;
     const location = test.location
-      ? `${test.location.file}:${test.location.line}:${test.location.column}`
+      ? `${toRelativePath(test.location.file)}:${test.location.line}:${test.location.column}`
       : undefined;
     const error = result.error?.message;
 
@@ -149,10 +164,6 @@ export class PlaywrightSlackReporter implements Reporter {
         const where = [failure.project, failure.location].filter(Boolean).join(' ');
         lines.push(`- ${failure.title}${where ? ` (${where})` : ''}`);
 
-        if (this.options.showErrorDetails) {
-          const summary = formatErrorSummary(failure.error);
-          if (summary) lines.push(`  reason: ${summary}`);
-        }
 
         if (this.options.showErrorDetails && !canUseBotThread && failure.error) {
           const details = formatErrorDetails(
@@ -197,8 +208,8 @@ export class PlaywrightSlackReporter implements Reporter {
         const detailLines: string[] = ['Failed test error reasons:'];
 
         for (const failure of this.failures.slice(0, this.options.maxFailures)) {
-          const summary = formatErrorSummary(failure.error);
-          detailLines.push(`- ${summary ?? 'Unknown error'}`);
+          const errorSummary = formatErrorSummaryForThread(failure.error);
+          detailLines.push(`- ${errorSummary}`);
         }
 
         if (this.failures.length > this.options.maxFailures) {
