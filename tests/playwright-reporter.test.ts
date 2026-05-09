@@ -592,4 +592,63 @@ describe('PlaywrightSlackReporter', () => {
     assert.match(mainText, /first error/);
     assert.match(mainText, /second error/);
   });
+
+  it('displays detailed timeout error with code snippet in thread', async () => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
+    process.env.SLACK_BOT_CHANNEL_ID = 'C1234567890';
+
+    const payloads: Array<{ text: string; thread_ts?: string }> = [];
+    const calls = { count: 0 };
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      calls.count += 1;
+      const body = JSON.parse(String(init?.body ?? '{}')) as { text: string; thread_ts?: string };
+      payloads.push(body);
+      if (calls.count === 1) {
+        return new Response('{"ok":true,"ts":"1742600000.123456"}', { status: 200 });
+      }
+      return new Response('{"ok":true,"ts":"1742600001.123456"}', { status: 200 });
+    }) as typeof fetch;
+
+    const reporter = new PlaywrightSlackReporter({ errorDetailsInThread: true });
+    reporter.onTestEnd?.(
+      {
+        titlePath: () => ['chromium', 'timeout test'],
+        parent: { project: () => ({ name: 'chromium' }) },
+        location: { file: 'e2e/timeout.spec.ts', line: 10, column: 2 },
+      } as any,
+      {
+        status: 'timedOut',
+        error: {
+          message: 'Test timeout of 30000ms exceeded.',
+        },
+        errors: [
+          {
+            message: 'Test timeout of 30000ms exceeded.',
+          },
+          {
+            message: 'page.click: Timeout 30000ms exceeded.',
+            stack:
+              'Error: page.click: Timeout 30000ms exceeded.\n\n  10 |   await page.goto(\'/\');\n> 11 |   await page.click(\'#submit-button\');\n     |              ^\n  12 | });\n\n    at e2e/timeout.spec.ts:11:14',
+          },
+        ],
+      } as any,
+    );
+
+    await reporter.onEnd?.({ status: 'failed' } as any);
+
+    assert.equal(payloads.length, 2);
+    
+    // Main message should contain test name
+    assert.match(payloads[0].text, /timeout test/);
+    assert.equal(payloads[0].thread_ts, undefined);
+    
+    // Thread message should contain detailed timeout error with code snippet
+    assert.equal(payloads[1].thread_ts, '1742600000.123456');
+    const threadText = payloads[1].text;
+    assert.match(threadText, /Test timeout of 30000ms exceeded/);
+    assert.match(threadText, /---/); // Separator between errors
+    assert.match(threadText, /page\.click: Timeout 30000ms exceeded/);
+    assert.match(threadText, />.*11.*await page\.click/); // Code snippet with line marker
+    assert.match(threadText, /timeout\.spec\.ts:11:14/);
+  });
 });

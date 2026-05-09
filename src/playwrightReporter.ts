@@ -64,11 +64,17 @@ export class PlaywrightSlackReporter implements Reporter {
         ? `${toRelativePath(test.location.file)}:${test.location.line}:${test.location.column}`
         : undefined;
       
-      // Combine error stack/message with snippet if available
-      const snippetSection = result.error?.snippet ? `\nCode snippet:\n${result.error.snippet}` : '';
-      const error = (result.error?.stack ?? result.error?.message)
-        ? `${result.error?.stack ?? result.error?.message}${snippetSection}`
+      const allErrors = result.errors && result.errors.length > 0
+        ? result.errors
+            .map(e => e.stack ?? e.message)
+            .filter(Boolean)
+            .join('\n\n---\n\n')
         : undefined;
+
+      const errorText = allErrors ?? result.error?.stack ?? result.error?.message;
+
+      const snippetSection = result.error?.snippet ? `\nCode snippet:\n${result.error.snippet}` : '';
+      const error = errorText ? `${errorText}${snippetSection}` : undefined;
 
       this.failures.push({ title, testName, project, location, error });
     } else if (result.status === 'passed') {
