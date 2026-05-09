@@ -219,7 +219,7 @@ describe('PlaywrightSlackReporter', () => {
     assert.equal(payloads[1].thread_ts, '1742600000.123456');
   });
 
-  it('falls back to inline details when bot settings are missing', async () => {
+  it('does not send when errorDetailsInThread is true but bot settings are missing', async () => {
     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
     delete process.env.SLACK_BOT_TOKEN;
     delete process.env.SLACK_BOT_CHANNEL_ID;
@@ -248,10 +248,8 @@ describe('PlaywrightSlackReporter', () => {
 
     await reporter.onEnd?.({ status: 'failed' } as any);
 
-    assert.equal(payloads.length, 1);
-    assert.equal(payloads[0].thread_ts, undefined);
-    assert.match(payloads[0].text, /details:/);
-    assert.match(payloads[0].text, /Expected: "Playwright"/);
+    // Should not send any notification when errorDetailsInThread is true but bot config is missing
+    assert.equal(payloads.length, 0);
   });
 
   it('does not include error content when showErrorDetails is false (webhook mode)', async () => {
@@ -534,7 +532,7 @@ describe('PlaywrightSlackReporter', () => {
     assert.doesNotMatch(secondThreadText, /Login failed/);
   });
 
-  it('falls back to combined thread message when splitThreadMessagePerTest is true but bot is not configured', async () => {
+  it('does not send when splitThreadMessagePerTest is true but bot is not configured', async () => {
     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
     delete process.env.SLACK_BOT_TOKEN;
     delete process.env.SLACK_BOT_CHANNEL_ID;
@@ -580,17 +578,8 @@ describe('PlaywrightSlackReporter', () => {
 
     await reporter.onEnd?.({ status: 'failed' } as any);
 
-    // Should only make 1 API call with inline details
-    assert.equal(payloads.length, 1);
-    const mainText = payloads[0].text;
-    
-    // Should contain both test details inline
-    assert.match(mainText, /first test/);
-    assert.match(mainText, /second test/);
-    assert.match(mainText, /e2e\/test1\.spec\.ts:10:1/);
-    assert.match(mainText, /e2e\/test2\.spec\.ts:20:1/);
-    assert.match(mainText, /first error/);
-    assert.match(mainText, /second error/);
+    // Should not send any notification when errorDetailsInThread is true but bot config is missing
+    assert.equal(payloads.length, 0);
   });
 
   it('displays detailed timeout error with code snippet in thread', async () => {

@@ -35,6 +35,11 @@ export async function sendNotification(
   threadMessages?: string[],
 ): Promise<void> {
   try {
+    // If errorDetailsInThread is enabled but bot config is missing, do not send via webhook
+    if (config.errorDetailsInThread && !config.canUseBotThread) {
+      return;
+    }
+
     // Bot thread mode: send main message, then thread details
     if (config.canUseBotThread && config.botToken && config.botChannel) {
       await sendViaBotWithThread(config, mainMessage, threadMessages);
