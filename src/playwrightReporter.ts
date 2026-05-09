@@ -23,7 +23,8 @@ export interface PlaywrightSlackReporterOptions {
 }
 
 type Failure = {
-  title: string;
+  title: string;           
+  testName: string;        
   project?: string;
   location?: string;
   error?: string;
@@ -41,6 +42,14 @@ function toRelativePath(absolutePath: string): string {
     return relative.startsWith('/') ? relative.slice(1) : relative;
   }
   return absolutePath;
+}
+
+// Replace absolute paths in stack traces and code snippets
+// Pattern: matches common file path patterns in stack traces
+// TODO: ここは簡単にできそう
+function convertStackTraceToRelativePaths(text: string): string {
+  const cwd = process.cwd();
+  return text.replace(new RegExp(cwd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '.');
 }
 
 function formatErrorSummary(error?: string): string | undefined {
@@ -62,16 +71,14 @@ function formatErrorSummary(error?: string): string | undefined {
   return summary.length > 0 ? summary : lines[0];
 }
 
-function formatErrorSummaryForThread(error?: string): string {
-  const summary = formatErrorSummary(error);
-  return summary ?? 'Unknown error';
-}
-
 function formatErrorDetails(error: string, maxLines: number, maxChars: number): string | undefined {
   const cleaned = stripAnsi(error).replace(/\r/g, '').trim();
   if (!cleaned) return undefined;
 
-  const lines = cleaned.split('\n');
+  // Convert absolute paths to relative paths in stack traces
+  const withRelativePaths = convertStackTraceToRelativePaths(cleaned);
+
+  const lines = withRelativePaths.split('\n');
   const sliced = lines.slice(0, maxLines);
   const truncatedByLines = lines.length > maxLines;
   const joined = sliced.join('\n');
@@ -94,6 +101,8 @@ function resolveNotifyMode(optionsMode?: PlaywrightSlackNotifyMode): PlaywrightS
 
 export class PlaywrightSlackReporter implements Reporter {
   private readonly failures: Failure[] = [];
+  private passedCount = 0;
+  private failedCount = 0;
 
   private readonly options: Required<
     Pick<PlaywrightSlackReporterOptions, 'maxFailures' | 'maxDetailLines' | 'maxDetailChars' | 'timeoutMs' | 'retries' | 'retryDelayMs'>
@@ -108,8 +117,8 @@ export class PlaywrightSlackReporter implements Reporter {
       botToken: options.botToken,
       botChannel: options.botChannel,
       maxFailures: options.maxFailures ?? 5,
-      maxDetailLines: options.maxDetailLines ?? 40,
-      maxDetailChars: options.maxDetailChars ?? 2500,
+      maxDetailLines: options.maxDetailLines ?? 80,
+      maxDetailChars: options.maxDetailChars ?? 4000,
       timeoutMs: options.timeoutMs ?? 10_000,
       retries: options.retries ?? 2,
       retryDelayMs: options.retryDelayMs ?? 500,
@@ -118,16 +127,28 @@ export class PlaywrightSlackReporter implements Reporter {
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
-    if (result.status !== 'failed' && result.status !== 'timedOut') return;
+    if (result.status === 'failed' || result.status === 'timedOut') {
+      this.failedCount++;
+      
+      const titlePath = test.titlePath();
+      const title = titlePath.join(' › ');
+      // Extract only the test name (last element of titlePath)
+      const testName = titlePath[titlePath.length - 1] ?? title;
+      
+      const project = test.parent.project()?.name;
+      const location = test.location
+        ? `${toRelativePath(test.location.file)}:${test.location.line}:${test.location.column}`
+        : undefined;
+      const snippetSection = result.error?.snippet ? `\nCode snippet:\n${result.error.snippet}` : '';
+      const error = (result.error?.stack ?? result.error?.message)
+        ? `${result.error?.stack ?? result.error?.message}${snippetSection}`
+        : undefined;
 
-    const title = test.titlePath().join(' › ');
-    const project = test.parent.project()?.name;
-    const location = test.location
-      ? `${toRelativePath(test.location.file)}:${test.location.line}:${test.location.column}`
-      : undefined;
-    const error = result.error?.message;
 
-    this.failures.push({ title, project, location, error });
+      this.failures.push({ title, testName, project, location, error });
+    } else if (result.status === 'passed') {
+      this.passedCount++;
+    }
   }
 
   async onEnd(result: FullResult): Promise<void> {
@@ -143,7 +164,8 @@ export class PlaywrightSlackReporter implements Reporter {
       console.warn('PlaywrightSlackReporter: errorDetailsInThread is enabled but Slack Bot config is missing. Set botToken/botChannel or SLACK_BOT_TOKEN/SLACK_BOT_CHANNEL_ID. Falling back to webhook inline details.');
     }
 
-    const header = `Playwright E2E result: ${result.status} (failures: ${this.failures.length})`;
+    const header = `Playwright E2E result: ${result.status}`;
+    const testSummary = `:large_green_circle: Passed: ${this.passedCount} :red_circle: Failed: ${this.failedCount}`;
 
     const repo = process.env.GITHUB_REPOSITORY;
     const sha = process.env.GITHUB_SHA;
@@ -153,7 +175,7 @@ export class PlaywrightSlackReporter implements Reporter {
     const runUrl =
       repo && runId && serverUrl ? `${serverUrl}/${repo}/actions/runs/${runId}` : undefined;
 
-    const lines: string[] = [header];
+    const lines: string[] = [header, testSummary];
     if (repo) lines.push(`repo: ${repo}`);
     if (sha) lines.push(`sha: ${sha}`);
     if (runUrl) lines.push(`run: ${runUrl}`);
@@ -161,21 +183,24 @@ export class PlaywrightSlackReporter implements Reporter {
     if (this.failures.length > 0) {
       lines.push('failures:');
       for (const failure of this.failures.slice(0, this.options.maxFailures)) {
-        const where = [failure.project, failure.location].filter(Boolean).join(' ');
-        lines.push(`- ${failure.title}${where ? ` (${where})` : ''}`);
+        if (canUseBotThread) {
+          lines.push(`:red_circle: ${failure.testName}`);
+        } else {
+          const where = [failure.project, failure.location].filter(Boolean).join(' ');
+          lines.push(`:red_circle: ${failure.title}${where ? ` (${where})` : ''}`);
 
-
-        if (this.options.showErrorDetails && !canUseBotThread && failure.error) {
-          const details = formatErrorDetails(
-            failure.error,
-            this.options.maxDetailLines,
-            this.options.maxDetailChars,
-          );
-          if (details) {
-            lines.push('  details:');
-            lines.push('```');
-            lines.push(details);
-            lines.push('```');
+          if (this.options.showErrorDetails && failure.error) {
+            const details = formatErrorDetails(
+              failure.error,
+              this.options.maxDetailLines,
+              this.options.maxDetailChars,
+            );
+            if (details) {
+              lines.push('  details:');
+              lines.push('```');
+              lines.push(details);
+              lines.push('```');
+            }
           }
         }
       }
@@ -190,6 +215,7 @@ export class PlaywrightSlackReporter implements Reporter {
     };
 
     try {
+      // TODO: READMEにenvにbot_tokenとwebhoo_urlどちらも設定してある場合は、thread方式になることを明記するべき
       if (canUseBotThread && botToken && botChannel) {
         const summary = await sendSlackBotMessage(
           botToken,
@@ -205,11 +231,29 @@ export class PlaywrightSlackReporter implements Reporter {
         );
 
         if (this.options.showErrorDetails && this.failures.length > 0 && summary.ts) {
-        const detailLines: string[] = ['Failed test error reasons:'];
+        const detailLines: string[] = [];
 
         for (const failure of this.failures.slice(0, this.options.maxFailures)) {
-          const errorSummary = formatErrorSummaryForThread(failure.error);
-          detailLines.push(`- ${errorSummary}`);
+          // Test name and location
+          const where = [failure.project, failure.location].filter(Boolean).join(' ');
+          detailLines.push(`**${failure.title}**${where ? ` (${where})` : ''}`);
+          
+          // Error details with full stack trace
+          if (failure.error) {
+            const details = formatErrorDetails(
+              failure.error,
+              this.options.maxDetailLines,
+              this.options.maxDetailChars,
+            );
+            if (details) {
+              detailLines.push('```');
+              detailLines.push(details);
+              detailLines.push('```');
+            }
+          }
+          
+          // Separator between errors (empty line)
+          detailLines.push('');
         }
 
         if (this.failures.length > this.options.maxFailures) {

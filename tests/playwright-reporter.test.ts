@@ -57,8 +57,9 @@ describe('PlaywrightSlackReporter', () => {
       {
         status: 'failed',
         error: {
-          message:
-            'Error: expect(page).toHaveTitle(expected) failed\\nExpected: "Playwright"\\nReceived: "Playwright E2E"',
+          message: 'Error: expect(page).toHaveTitle(expected) failed',
+          stack:
+            'Error: expect(page).toHaveTitle(expected) failed\nExpected: "Playwright"\nReceived: "Playwright E2E"\n    at e2e/basic.spec.ts:3:5',
         },
       } as any,
     );
@@ -68,6 +69,9 @@ describe('PlaywrightSlackReporter', () => {
     const payload = JSON.parse(seen.body) as { text: string };
     assert.equal(typeof payload.text, 'string');
     assert.match(payload.text, /Playwright E2E result: failed/);
+    assert.match(payload.text, /:large_green_circle: Passed: 0/);
+    assert.match(payload.text, /:red_circle: Failed: 1/);
+    assert.match(payload.text, /:red_circle:/);
     assert.match(payload.text, /Expected: "Playwright"/);
     assert.match(payload.text, /Received: "Playwright E2E"/);
   });
@@ -144,8 +148,9 @@ describe('PlaywrightSlackReporter', () => {
       {
         status: 'failed',
         error: {
-          message:
-            'Error: expect(page).toHaveTitle(expected) failed\\nExpected: "Playwright"\\nReceived: "Playwright E2E"',
+          message: 'Error: expect(page).toHaveTitle(expected) failed',
+          stack:
+            'Error: expect(page).toHaveTitle(expected) failed\n\n  8 | test("thread details test", async ({ page }) => {\n  9 |   await page.goto("https://example.com");\n> 10 |   await expect(page).toHaveTitle("Wrong Title");\n    |         ^\n  11 | });\n\nExpected: "Playwright"\nReceived: "Playwright E2E"\n    at e2e/thread.spec.ts:10:2',
         },
       } as any,
     );
@@ -155,10 +160,24 @@ describe('PlaywrightSlackReporter', () => {
     assert.equal(payloads.length, 2);
     assert.equal(payloads[0].thread_ts, undefined);
     assert.match(payloads[0].text, /Playwright E2E result: failed/);
+    assert.match(payloads[0].text, /:large_green_circle: Passed: 0/);
+    assert.match(payloads[0].text, /:red_circle: Failed: 1/);
+    
+    // Main post should contain only test name (not full path) with red circle
+    assert.match(payloads[0].text, /:red_circle: thread details test/);
+    assert.doesNotMatch(payloads[0].text, /chromium › thread details test/);
+    assert.doesNotMatch(payloads[0].text, /e2e\/thread\.spec\.ts/);
+    
+    // Thread post should contain full details including code snippet
     assert.equal(payloads[1].thread_ts, '1742600000.123456');
-    assert.match(payloads[1].text, /Failed test error reasons:/);
+    assert.match(payloads[1].text, /\*\*chromium › thread details test\*\*/);
+    assert.match(payloads[1].text, /chromium e2e\/thread\.spec\.ts:10:2/);
+    assert.match(payloads[1].text, /```/);
     assert.match(payloads[1].text, /Expected: "Playwright"/);
-    assert.doesNotMatch(payloads[1].text, /details:/);
+    assert.match(payloads[1].text, /Received: "Playwright E2E"/);
+    // Should contain code snippet
+    assert.match(payloads[1].text, />.*10.*await expect\(page\)\.toHaveTitle/);
+    assert.doesNotMatch(payloads[1].text, /Failed test error reasons:/);
   });
 
   it('uses parent ts returned from bot API as thread ts for detail post', async () => {
@@ -339,5 +358,86 @@ describe('PlaywrightSlackReporter', () => {
     assert.match(payload.text, /apps\/web\/e2e\/contact-form\.spec\.ts:114:1/);
     // Should NOT contain the full absolute path
     assert.doesNotMatch(payload.text, new RegExp(cwd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  });
+
+  it('posts multiple errors with test names in thread', async () => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
+    process.env.SLACK_BOT_CHANNEL_ID = 'C1234567890';
+
+    const payloads: Array<{ text: string; thread_ts?: string }> = [];
+    const calls = { count: 0 };
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      calls.count += 1;
+      const body = JSON.parse(String(init?.body ?? '{}')) as { text: string; thread_ts?: string };
+      payloads.push(body);
+      if (calls.count === 1) {
+        return new Response('{"ok":true,"ts":"1742600000.123456"}', { status: 200 });
+      }
+      return new Response('{"ok":true,"ts":"1742600001.123456"}', { status: 200 });
+    }) as typeof fetch;
+
+    const reporter = new PlaywrightSlackReporter({ errorDetailsInThread: true });
+    
+    // First failure
+    reporter.onTestEnd?.(
+      {
+        titlePath: () => ['chromium', 'login test'],
+        parent: { project: () => ({ name: 'chromium' }) },
+        location: { file: 'e2e/auth.spec.ts', line: 15, column: 1 },
+      } as any,
+      {
+        status: 'failed',
+        error: {
+          message: 'Error: Login failed\nLocator timeout',
+        },
+      } as any,
+    );
+    
+    // Second failure
+    reporter.onTestEnd?.(
+      {
+        titlePath: () => ['firefox', 'form test'],
+        parent: { project: () => ({ name: 'firefox' }) },
+        location: { file: 'e2e/form.spec.ts', line: 25, column: 1 },
+      } as any,
+      {
+        status: 'failed',
+        error: {
+          message: 'Error: Form submission failed\nExpected 200, received 500',
+        },
+      } as any,
+    );
+
+    await reporter.onEnd?.({ status: 'failed' } as any);
+
+    assert.equal(payloads.length, 2);
+    
+    // Main post should contain only test names (not full paths)
+    const mainText = payloads[0].text;
+    assert.match(mainText, /:red_circle: login test/);
+    assert.match(mainText, /:red_circle: form test/);
+    assert.doesNotMatch(mainText, /chromium › login test/);
+    assert.doesNotMatch(mainText, /e2e\/auth\.spec\.ts/);
+    assert.doesNotMatch(mainText, /e2e\/form\.spec\.ts/);
+    
+    // Thread post should contain full details
+    assert.equal(payloads[1].thread_ts, '1742600000.123456');
+    const threadText = payloads[1].text;
+    
+    // Should contain both test names with full paths
+    assert.match(threadText, /\*\*chromium › login test\*\*/);
+    assert.match(threadText, /\*\*firefox › form test\*\*/);
+    
+    // Should contain both locations
+    assert.match(threadText, /e2e\/auth\.spec\.ts:15:1/);
+    assert.match(threadText, /e2e\/form\.spec\.ts:25:1/);
+    
+    // Should contain both error messages
+    assert.match(threadText, /Login failed/);
+    assert.match(threadText, /Form submission failed/);
+    
+    // Should have code blocks
+    const codeBlockCount = (threadText.match(/```/g) || []).length;
+    assert.equal(codeBlockCount, 4); // 2 errors × 2 code blocks (open and close)
   });
 });
