@@ -10,7 +10,7 @@ import type { ReporterConfig } from './reporterConfig.ts';
 import { sendSlackBotMessage } from './slackBotClient.ts';
 import { sendSlackWebhook } from './slackClient.ts';
 import type { SlackWebhookPayload } from './types.ts';
-import { validateWebhookUrl } from './utils.ts';
+import { red, validateWebhookUrl } from './utils.ts';
 
 /**
  * Sends a Slack notification using the appropriate method based on configuration
@@ -116,7 +116,7 @@ async function sendViaWebhook(config: ReporterConfig, message: string): Promise<
   const webhookUrl = config.getWebhookUrl();
   
   if (!webhookUrl) {
-    console.error('PlaywrightSlackReporter: SLACK_WEBHOOK_URL is not set');
+    console.error(red('PlaywrightSlackReporter: SLACK_WEBHOOK_URL is not set'));
     return;
   }
 
