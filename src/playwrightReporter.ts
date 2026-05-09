@@ -1,5 +1,8 @@
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
+import { DEFAULTS, EMOJIS, ENV_VARS } from './constants.ts';
+import { formatErrorDetails } from './formatters.ts';
+import { toRelativePath } from './pathUtils.ts';
 import { sendSlackBotMessage } from './slackBotClient.ts';
 import { sendSlackWebhook } from './slackClient.ts';
 import type { SlackWebhookPayload } from './types.ts';
@@ -30,73 +33,10 @@ type Failure = {
   error?: string;
 };
 
-function stripAnsi(text: string): string {
-  return text.replace(/\u001b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*m/g, '');
-}
-
-function toRelativePath(absolutePath: string): string {
-  const cwd = process.cwd();
-  if (absolutePath.startsWith(cwd)) {
-    const relative = absolutePath.slice(cwd.length);
-    // Remove leading slash if present
-    return relative.startsWith('/') ? relative.slice(1) : relative;
-  }
-  return absolutePath;
-}
-
-// Replace absolute paths in stack traces and code snippets
-// Pattern: matches common file path patterns in stack traces
-// TODO: ここは簡単にできそう
-function convertStackTraceToRelativePaths(text: string): string {
-  const cwd = process.cwd();
-  return text.replace(new RegExp(cwd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '.');
-}
-
-function formatErrorSummary(error?: string): string | undefined {
-  if (!error) return undefined;
-
-  const cleaned = stripAnsi(error).replace(/\r/g, '');
-  const lines = cleaned
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length === 0) return undefined;
-
-  const summary = lines
-    .filter((line) => !line.startsWith('at '))
-    .slice(0, 3)
-    .join(' | ');
-
-  return summary.length > 0 ? summary : lines[0];
-}
-
-function formatErrorDetails(error: string, maxLines: number, maxChars: number): string | undefined {
-  const cleaned = stripAnsi(error).replace(/\r/g, '').trim();
-  if (!cleaned) return undefined;
-
-  // Convert absolute paths to relative paths in stack traces
-  const withRelativePaths = convertStackTraceToRelativePaths(cleaned);
-
-  const lines = withRelativePaths.split('\n');
-  const sliced = lines.slice(0, maxLines);
-  const truncatedByLines = lines.length > maxLines;
-  const joined = sliced.join('\n');
-
-  const truncatedByChars = joined.length > maxChars;
-  const detail = truncatedByChars ? `${joined.slice(0, maxChars)}\n...(truncated)` : joined;
-
-  if (truncatedByLines && !truncatedByChars) {
-    return `${detail}\n...(truncated)`;
-  }
-
-  return detail;
-}
-
 function resolveNotifyMode(optionsMode?: PlaywrightSlackNotifyMode): PlaywrightSlackNotifyMode {
-  const envMode = (process.env.PLAYWRIGHT_SLACK_NOTIFY ?? '').toLowerCase();
+  const envMode = (process.env[ENV_VARS.PLAYWRIGHT_SLACK_NOTIFY] ?? '').toLowerCase();
   if (envMode === 'always' || envMode === 'failure') return envMode;
-  return optionsMode ?? 'failure';
+  return optionsMode ?? DEFAULTS.NOTIFY_MODE;
 }
 
 export class PlaywrightSlackReporter implements Reporter {
@@ -112,16 +52,16 @@ export class PlaywrightSlackReporter implements Reporter {
   constructor(options: PlaywrightSlackReporterOptions = {}) {
     this.options = {
       notifyMode: options.notifyMode,
-      showErrorDetails: options.showErrorDetails ?? true,
-      errorDetailsInThread: options.errorDetailsInThread ?? false,
+      showErrorDetails: options.showErrorDetails ?? DEFAULTS.SHOW_ERROR_DETAILS,
+      errorDetailsInThread: options.errorDetailsInThread ?? DEFAULTS.ERROR_DETAILS_IN_THREAD,
       botToken: options.botToken,
       botChannel: options.botChannel,
-      maxFailures: options.maxFailures ?? 5,
-      maxDetailLines: options.maxDetailLines ?? 80,
-      maxDetailChars: options.maxDetailChars ?? 4000,
-      timeoutMs: options.timeoutMs ?? 10_000,
-      retries: options.retries ?? 2,
-      retryDelayMs: options.retryDelayMs ?? 500,
+      maxFailures: options.maxFailures ?? DEFAULTS.MAX_FAILURES,
+      maxDetailLines: options.maxDetailLines ?? DEFAULTS.MAX_DETAIL_LINES,
+      maxDetailChars: options.maxDetailChars ?? DEFAULTS.MAX_DETAIL_CHARS,
+      timeoutMs: options.timeoutMs ?? DEFAULTS.TIMEOUT_MS,
+      retries: options.retries ?? DEFAULTS.RETRIES,
+      retryDelayMs: options.retryDelayMs ?? DEFAULTS.RETRY_DELAY_MS,
       channel: options.channel,
     };
   }
@@ -156,8 +96,8 @@ export class PlaywrightSlackReporter implements Reporter {
     const shouldNotify = notifyMode === 'always' ? true : this.failures.length > 0 || result.status !== 'passed';
     if (!shouldNotify) return;
 
-    const botToken = (this.options.botToken ?? process.env.SLACK_BOT_TOKEN)?.trim();
-    const botChannel = (this.options.botChannel ?? process.env.SLACK_BOT_CHANNEL_ID ?? this.options.channel)?.trim();
+    const botToken = (this.options.botToken ?? process.env[ENV_VARS.SLACK_BOT_TOKEN])?.trim();
+    const botChannel = (this.options.botChannel ?? process.env[ENV_VARS.SLACK_BOT_CHANNEL_ID] ?? this.options.channel)?.trim();
     const canUseBotThread = this.options.errorDetailsInThread && !!botToken && !!botChannel;
 
     if (this.options.errorDetailsInThread && !canUseBotThread) {
@@ -165,12 +105,12 @@ export class PlaywrightSlackReporter implements Reporter {
     }
 
     const header = `Playwright E2E result: ${result.status}`;
-    const testSummary = `:large_green_circle: Passed: ${this.passedCount} :red_circle: Failed: ${this.failedCount}`;
+    const testSummary = `${EMOJIS.GREEN_CIRCLE} Passed: ${this.passedCount} ${EMOJIS.RED_CIRCLE} Failed: ${this.failedCount}`;
 
-    const repo = process.env.GITHUB_REPOSITORY;
-    const sha = process.env.GITHUB_SHA;
-    const runId = process.env.GITHUB_RUN_ID;
-    const serverUrl = process.env.GITHUB_SERVER_URL;
+    const repo = process.env[ENV_VARS.GITHUB_REPOSITORY];
+    const sha = process.env[ENV_VARS.GITHUB_SHA];
+    const runId = process.env[ENV_VARS.GITHUB_RUN_ID];
+    const serverUrl = process.env[ENV_VARS.GITHUB_SERVER_URL];
 
     const runUrl =
       repo && runId && serverUrl ? `${serverUrl}/${repo}/actions/runs/${runId}` : undefined;
@@ -184,10 +124,10 @@ export class PlaywrightSlackReporter implements Reporter {
       lines.push('failures:');
       for (const failure of this.failures.slice(0, this.options.maxFailures)) {
         if (canUseBotThread) {
-          lines.push(`:red_circle: ${failure.testName}`);
+          lines.push(`${EMOJIS.RED_CIRCLE} ${failure.testName}`);
         } else {
           const where = [failure.project, failure.location].filter(Boolean).join(' ');
-          lines.push(`:red_circle: ${failure.title}${where ? ` (${where})` : ''}`);
+          lines.push(`${EMOJIS.RED_CIRCLE} ${failure.title}${where ? ` (${where})` : ''}`);
 
           if (this.options.showErrorDetails && failure.error) {
             const details = formatErrorDetails(
@@ -282,7 +222,7 @@ export class PlaywrightSlackReporter implements Reporter {
         return;
       }
 
-      const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+      const webhookUrl = process.env[ENV_VARS.SLACK_WEBHOOK_URL];
       if (!webhookUrl || webhookUrl.trim().length === 0) return;
 
       try {
