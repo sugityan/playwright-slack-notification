@@ -111,7 +111,7 @@ async function sendViaWebhook(config: ReporterConfig, message: string): Promise<
   const webhookUrl = config.getWebhookUrl();
   
   if (!webhookUrl) {
-    // No webhook URL configured, silently skip
+    console.error('PlaywrightSlackReporter: SLACK_WEBHOOK_URL is not set');
     return;
   }
 
