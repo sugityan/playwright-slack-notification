@@ -4,6 +4,7 @@
 
 import { DEFAULTS, ENV_VARS } from './constants.ts';
 import type { PlaywrightSlackNotifyMode, PlaywrightSlackReporterOptions, ResolvedReporterOptions } from './reporterTypes.ts';
+import { red } from './utils.ts';
 
 /**
  * Configuration class that manages reporter options and provides computed properties
@@ -52,13 +53,9 @@ export class ReporterConfig {
     // Compute whether bot thread mode is available
     this.canUseBotThread = this.errorDetailsInThread && !!this.botToken && !!this.botChannel;
 
-    // Warn if thread mode is requested but not available
+    // Error if thread mode is requested but not available
     if (this.errorDetailsInThread && !this.canUseBotThread) {
-      console.warn(
-        'PlaywrightSlackReporter: errorDetailsInThread is enabled but Slack Bot config is missing. ' +
-        'Set botToken/botChannel or SLACK_BOT_TOKEN/SLACK_BOT_CHANNEL_ID. ' +
-        'Falling back to webhook inline details.'
-      );
+      console.error(red('PlaywrightSlackReporter: errorDetailsInThread is enabled but SLACK_BOT_TOKEN or SLACK_BOT_CHANNEL_ID is not set'));
     }
   }
 
