@@ -38,6 +38,9 @@ export interface MessageBuilderOptions {
   
   /** Whether using bot thread mode (affects main message format) */
   useBotThreadMode: boolean;
+  
+  /** Whether to split thread messages per test case */
+  splitThreadMessagePerTest: boolean;
 }
 
 /**
@@ -113,23 +116,48 @@ export function buildMainMessage(options: MessageBuilderOptions): string {
 }
 
 /**
- * Builds the thread detail message for bot thread mode
+ * Builds thread detail messages for bot thread mode
+ * Returns an array of messages - either one combined message or one per test
  * 
  * @param options - Message building options
- * @returns The formatted thread message text, or undefined if no details to show
+ * @returns Array of formatted thread messages, or undefined if no details to show
  */
-export function buildThreadDetailMessage(options: MessageBuilderOptions): string | undefined {
+export function buildThreadDetailMessages(options: MessageBuilderOptions): string[] | undefined {
   const {
     failures,
     maxFailures,
     maxDetailLines,
     maxDetailChars,
     showErrorDetails,
+    splitThreadMessagePerTest,
   } = options;
 
   if (!showErrorDetails || failures.length === 0) {
     return undefined;
   }
+
+  if (splitThreadMessagePerTest) {
+    return buildThreadDetailMessagesPerTest(options);
+  }
+
+  // Single combined message (original behavior)
+  const singleMessage = buildThreadDetailMessageCombined(options);
+  return singleMessage ? [singleMessage] : undefined;
+}
+
+/**
+ * Builds a single combined thread message with all errors (original behavior)
+ * 
+ * @param options - Message building options
+ * @returns The formatted thread message text, or undefined if no details to show
+ */
+function buildThreadDetailMessageCombined(options: MessageBuilderOptions): string | undefined {
+  const {
+    failures,
+    maxFailures,
+    maxDetailLines,
+    maxDetailChars,
+  } = options;
 
   const detailLines: string[] = [];
 
@@ -156,7 +184,50 @@ export function buildThreadDetailMessage(options: MessageBuilderOptions): string
     detailLines.push(`...and ${failures.length - maxFailures} more`);
   }
 
-  return detailLines.join('\n');
+  return detailLines.length > 0 ? detailLines.join('\n') : undefined;
+}
+
+/**
+ * Builds separate thread messages for each test failure
+ * 
+ * @param options - Message building options
+ * @returns Array of formatted thread messages, one per test failure
+ */
+function buildThreadDetailMessagesPerTest(options: MessageBuilderOptions): string[] | undefined {
+  const {
+    failures,
+    maxFailures,
+    maxDetailLines,
+    maxDetailChars,
+  } = options;
+
+  const messages: string[] = [];
+
+  for (const failure of failures.slice(0, maxFailures)) {
+    const messageLines: string[] = [];
+
+    // Test name and location
+    const where = [failure.project, failure.location].filter(Boolean).join(' ');
+    messageLines.push(`**${failure.title}**${where ? ` (${where})` : ''}`);
+
+    // Error details with full stack trace
+    if (failure.error) {
+      const details = formatErrorDetails(failure.error, maxDetailLines, maxDetailChars);
+      if (details) {
+        messageLines.push('```');
+        messageLines.push(details);
+        messageLines.push('```');
+      }
+    }
+
+    messages.push(messageLines.join('\n'));
+  }
+
+  if (failures.length > maxFailures) {
+    messages.push(`...and ${failures.length - maxFailures} more test failures not shown`);
+  }
+
+  return messages.length > 0 ? messages : undefined;
 }
 
 /**
@@ -167,7 +238,7 @@ export function buildThreadDetailMessage(options: MessageBuilderOptions): string
  * @param failedCount - Number of failed tests
  * @param failures - List of test failures
  * @param config - Message configuration options
- * @returns Object containing main message and optional thread message
+ * @returns Object containing main message and optional thread messages array
  */
 export function buildMessages(
   result: FullResult,
@@ -180,8 +251,9 @@ export function buildMessages(
     maxDetailChars: number;
     showErrorDetails: boolean;
     useBotThreadMode: boolean;
+    splitThreadMessagePerTest: boolean;
   }
-): { mainMessage: string; threadMessage?: string } {
+): { mainMessage: string; threadMessages?: string[] } {
   const options: MessageBuilderOptions = {
     resultStatus: result.status,
     passedCount,
@@ -192,10 +264,11 @@ export function buildMessages(
     maxDetailChars: config.maxDetailChars,
     showErrorDetails: config.showErrorDetails,
     useBotThreadMode: config.useBotThreadMode,
+    splitThreadMessagePerTest: config.splitThreadMessagePerTest,
   };
 
   const mainMessage = buildMainMessage(options);
-  const threadMessage = config.useBotThreadMode ? buildThreadDetailMessage(options) : undefined;
+  const threadMessages = config.useBotThreadMode ? buildThreadDetailMessages(options) : undefined;
 
-  return { mainMessage, threadMessage };
+  return { mainMessage, threadMessages };
 }

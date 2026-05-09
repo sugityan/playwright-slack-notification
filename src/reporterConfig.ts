@@ -12,6 +12,7 @@ export class ReporterConfig {
   readonly notifyMode?: PlaywrightSlackNotifyMode;
   readonly showErrorDetails: boolean;
   readonly errorDetailsInThread: boolean;
+  readonly splitThreadMessagePerTest: boolean;
   readonly maxFailures: number;
   readonly maxDetailLines: number;
   readonly maxDetailChars: number;
@@ -35,6 +36,7 @@ export class ReporterConfig {
     this.notifyMode = options.notifyMode;
     this.showErrorDetails = options.showErrorDetails ?? DEFAULTS.SHOW_ERROR_DETAILS;
     this.errorDetailsInThread = options.errorDetailsInThread ?? DEFAULTS.ERROR_DETAILS_IN_THREAD;
+    this.splitThreadMessagePerTest = options.splitThreadMessagePerTest ?? DEFAULTS.SPLIT_THREAD_MESSAGE_PER_TEST;
     this.maxFailures = options.maxFailures ?? DEFAULTS.MAX_FAILURES;
     this.maxDetailLines = options.maxDetailLines ?? DEFAULTS.MAX_DETAIL_LINES;
     this.maxDetailChars = options.maxDetailChars ?? DEFAULTS.MAX_DETAIL_CHARS;
@@ -114,6 +116,7 @@ export class ReporterConfig {
       notifyMode: this.notifyMode,
       showErrorDetails: this.showErrorDetails,
       errorDetailsInThread: this.errorDetailsInThread,
+      splitThreadMessagePerTest: this.splitThreadMessagePerTest,
       botToken: this.botToken,
       botChannel: this.botChannel,
       maxFailures: this.maxFailures,

@@ -17,6 +17,14 @@ export interface PlaywrightSlackReporterOptions {
   /** Whether to post error details in a thread (requires Bot Token mode) */
   errorDetailsInThread?: boolean;
   
+  /**
+   * Whether to split thread messages per test case (only applies when errorDetailsInThread is true)
+   * - false (default): Post all errors in one thread message
+   * - true: Post each test error as a separate thread message
+   * @default false
+   */
+  splitThreadMessagePerTest?: boolean;
+  
   /** Slack Bot Token (alternative to webhook) */
   botToken?: string;
   
@@ -52,6 +60,7 @@ export interface ResolvedReporterOptions {
   notifyMode?: PlaywrightSlackNotifyMode;
   showErrorDetails: boolean;
   errorDetailsInThread: boolean;
+  splitThreadMessagePerTest: boolean;
   botToken?: string;
   botChannel?: string;
   maxFailures: number;

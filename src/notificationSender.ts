@@ -24,7 +24,7 @@ import { validateWebhookUrl } from './utils.ts';
  * 
  * @param config - Reporter configuration
  * @param mainMessage - The main message text to send
- * @param threadMessage - Optional thread message (only used in bot thread mode)
+ * @param threadMessages - Optional array of thread messages (only used in bot thread mode)
  * @throws {SlackApiError} If the Slack API returns an error
  * @throws {NetworkError} If there's a network issue
  * @throws {ValidationError} If the webhook URL is invalid
@@ -32,12 +32,12 @@ import { validateWebhookUrl } from './utils.ts';
 export async function sendNotification(
   config: ReporterConfig,
   mainMessage: string,
-  threadMessage?: string,
+  threadMessages?: string[],
 ): Promise<void> {
   try {
     // Bot thread mode: send main message, then thread details
     if (config.canUseBotThread && config.botToken && config.botChannel) {
-      await sendViaBotWithThread(config, mainMessage, threadMessage);
+      await sendViaBotWithThread(config, mainMessage, threadMessages);
       return;
     }
 
@@ -52,15 +52,16 @@ export async function sendNotification(
 
 /**
  * Sends notification via Slack Bot with optional thread posting
+ * Supports sending multiple thread messages sequentially
  * 
  * @param config - Reporter configuration
  * @param mainMessage - The main message text
- * @param threadMessage - Optional thread message
+ * @param threadMessages - Optional array of thread messages
  */
 async function sendViaBotWithThread(
   config: ReporterConfig,
   mainMessage: string,
-  threadMessage?: string,
+  threadMessages?: string[],
 ): Promise<void> {
   if (!config.botToken || !config.botChannel) {
     throw new Error('Bot token and channel are required for bot thread mode');
@@ -81,20 +82,22 @@ async function sendViaBotWithThread(
   );
 
   // Send thread details if available
-  if (threadMessage && mainResponse.ts) {
-    await sendSlackBotMessage(
-      config.botToken,
-      {
-        channel: config.botChannel,
-        text: threadMessage,
-        threadTs: mainResponse.ts,
-      },
-      {
-        timeoutMs: config.timeoutMs,
-        retries: config.retries,
-        retryDelayMs: config.retryDelayMs,
-      },
-    );
+  if (threadMessages && threadMessages.length > 0 && mainResponse.ts) {
+    for (const threadMessage of threadMessages) {
+      await sendSlackBotMessage(
+        config.botToken,
+        {
+          channel: config.botChannel,
+          text: threadMessage,
+          threadTs: mainResponse.ts,
+        },
+        {
+          timeoutMs: config.timeoutMs,
+          retries: config.retries,
+          retryDelayMs: config.retryDelayMs,
+        },
+      );
+    }
   }
 }
 

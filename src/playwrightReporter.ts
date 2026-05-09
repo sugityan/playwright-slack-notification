@@ -89,7 +89,7 @@ export class PlaywrightSlackReporter implements Reporter {
 
     try {
       // Build messages
-      const { mainMessage, threadMessage } = buildMessages(
+      const { mainMessage, threadMessages } = buildMessages(
         result,
         this.passedCount,
         this.failedCount,
@@ -100,11 +100,12 @@ export class PlaywrightSlackReporter implements Reporter {
           maxDetailChars: this.config.maxDetailChars,
           showErrorDetails: this.config.showErrorDetails,
           useBotThreadMode: this.config.canUseBotThread,
+          splitThreadMessagePerTest: this.config.splitThreadMessagePerTest,
         }
       );
 
       // Send notification
-      await sendNotification(this.config, mainMessage, threadMessage);
+      await sendNotification(this.config, mainMessage, threadMessages);
     } catch (err) {
       // Error already logged by sendNotification, just swallow it here
       // to prevent Playwright from failing due to reporter errors

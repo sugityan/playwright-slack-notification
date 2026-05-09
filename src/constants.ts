@@ -24,6 +24,7 @@ export const DEFAULTS = {
   RETRY_DELAY_MS: 500,
   SHOW_ERROR_DETAILS: true,
   ERROR_DETAILS_IN_THREAD: false,
+  SPLIT_THREAD_MESSAGE_PER_TEST: false,
   NOTIFY_MODE: 'failure' as const,
 } as const;
 
