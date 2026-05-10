@@ -1,6 +1,6 @@
 ## @sugityan/playwright-slack-notification
 
-Playwright / CI スクリプトから Slack（Incoming Webhook）へ通知するための npm package です。
+Playwrightの実行結果をSlackへ通知するための`npm package`です。
 
 ## 使い方
 
@@ -14,18 +14,26 @@ npm i @sugityan/playwright-slack-notification
 
 この package には 2 つの設定方式があります。
 
-- **A. Incoming Webhook 方式**: シンプル。スレッド投稿は不可
-- **B. Slack Bot Token 方式**: スレッド投稿（エラー理由）が可能
+
+- Webhook方式（デフォルト）の場合の通知
+  - シンプルな単一メッセージ
+  - スレッド非対応
+  - エラー詳細は本文に直接記載
+
+### Bot Token方式の場合の通知  
+  - メイン投稿＋スレッド投稿が可能
+  - `errorDetailsInThread: true`でエラー詳細をスレッドに分離
+  - より見やすい階層構造
 
 #### A. Incoming Webhook 方式
 
-`.env` に Webhook URL を設定します（`webhookUrl` をコードで直接渡す場合は省略可能です）：
+`.env` に Webhook URL を設定します.
 
 ```env
 SLACK_WEBHOOK_URL=YOUR_WEBHOOK_URL
 ```
 
-#### B. Slack Bot Token 方式（スレッド投稿したい場合）
+#### B. Slack Bot Token 方式
 
 `.env` に Bot Token と Channel ID を設定します：
 
@@ -61,7 +69,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['@sugityan/playwright-slack-notification/reporter', {
-      notifyMode: 'failure', // 'failure' | 'always'
+      notifyOnlyFailure: true,
       showErrorDetails: true,
 
       
@@ -131,20 +139,3 @@ SLACK_BOT_TOKEN=xoxb-...
 `SLACK_BOT_TOKEN` が未指定の場合は、エラー詳細は本文表示にフォールバックします。
 
 スレッド投稿は **Bot 方式のときのみ** 利用できます（Webhook 方式では不可）。
-
-thread に投稿される内容は「失敗したテストのエラー理由のみ」です。
-
-3) Playwright を実行します：
-
-```bash
-npx playwright test
-```
-
-### 5. このリポジトリでの動作確認
-
-テスト通知を送るコマンド：
-
-```bash
-npm run slack:test
-npm run slack:test -- "任意のメッセージ"
-```

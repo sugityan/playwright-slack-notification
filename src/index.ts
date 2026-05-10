@@ -6,7 +6,7 @@ import type { NotificationOptions, SlackWebhookPayload } from './types.ts';
 import { getEnv, validateNonEmptyString, validateWebhookUrl } from './utils.ts';
 
 export type { NotificationOptions, SlackAttachment, SlackBlock } from './types.ts';
-export type { PlaywrightSlackNotifyMode, PlaywrightSlackReporterOptions } from './playwrightReporter.ts';
+export type { PlaywrightSlackReporterOptions } from './playwrightReporter.ts';
 export { NetworkError, SlackApiError, SlackNotificationError, ValidationError } from './errors.ts';
 export { PlaywrightSlackReporter } from './playwrightReporter.ts';
 export { sendSlackBotMessage } from './slackBotClient.ts';

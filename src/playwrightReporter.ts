@@ -7,7 +7,7 @@ import { ReporterConfig } from './reporterConfig.ts';
 import type { Failure, PlaywrightSlackReporterOptions } from './reporterTypes.ts';
 
 // Re-export types for backward compatibility
-export type { PlaywrightSlackNotifyMode, PlaywrightSlackReporterOptions } from './reporterTypes.ts';
+export type { PlaywrightSlackReporterOptions } from './reporterTypes.ts';
 
 /**
  * Playwright reporter that sends test results to Slack
@@ -89,12 +89,10 @@ export class PlaywrightSlackReporter implements Reporter {
    * @param result - The full test result
    */
   async onEnd(result: FullResult): Promise<void> {
-    // Check if we should send notification
     const shouldNotify = this.config.shouldNotify(this.failures.length > 0, result.status);
     if (!shouldNotify) return;
 
     try {
-      // Build messages
       const { mainMessage, threadMessages } = buildMessages(
         result,
         this.passedCount,
@@ -110,11 +108,9 @@ export class PlaywrightSlackReporter implements Reporter {
         }
       );
 
-      // Send notification
       await sendNotification(this.config, mainMessage, threadMessages);
     } catch (err) {
-      // Error already logged by sendNotification, just swallow it here
-      // to prevent Playwright from failing due to reporter errors
+      // TODO: add throw error handling
     }
   }
 }

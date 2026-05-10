@@ -3,14 +3,13 @@
  */
 
 import { DEFAULTS, ENV_VARS } from './constants.ts';
-import type { PlaywrightSlackNotifyMode, PlaywrightSlackReporterOptions, ResolvedReporterOptions } from './reporterTypes.ts';
-import { red } from './utils.ts';
+import type { PlaywrightSlackReporterOptions, ResolvedReporterOptions } from './reporterTypes.ts';
 
 /**
  * Configuration class that manages reporter options and provides computed properties
  */
 export class ReporterConfig {
-  readonly notifyMode?: PlaywrightSlackNotifyMode;
+  readonly sendNotificationOnSuccess: boolean;
   readonly showErrorDetails: boolean;
   readonly errorDetailsInThread: boolean;
   readonly splitThreadMessagePerTest: boolean;
@@ -33,8 +32,9 @@ export class ReporterConfig {
    * @param options - User-provided configuration options
    */
   constructor(options: PlaywrightSlackReporterOptions = {}) {
-    // Apply defaults
-    this.notifyMode = options.notifyMode;
+    this.sendNotificationOnSuccess = 
+      options.sendNotificationOnSuccess ??
+      DEFAULTS.SEND_NOTIFICATION_ON_SUCCESS;
     this.showErrorDetails = options.showErrorDetails ?? DEFAULTS.SHOW_ERROR_DETAILS;
     this.errorDetailsInThread = options.errorDetailsInThread ?? DEFAULTS.ERROR_DETAILS_IN_THREAD;
     this.splitThreadMessagePerTest = options.splitThreadMessagePerTest ?? DEFAULTS.SPLIT_THREAD_MESSAGE_PER_TEST;
@@ -65,27 +65,6 @@ export class ReporterConfig {
   }
 
   /**
-   * Resolves the notify mode from options or environment variable
-   * 
-   * @param optionsMode - The mode specified in options
-   * @returns The resolved notify mode
-   */
-  static resolveNotifyMode(optionsMode?: PlaywrightSlackNotifyMode): PlaywrightSlackNotifyMode {
-    const envMode = (process.env[ENV_VARS.PLAYWRIGHT_SLACK_NOTIFY] ?? '').toLowerCase();
-    if (envMode === 'always' || envMode === 'failure') return envMode;
-    return optionsMode ?? DEFAULTS.NOTIFY_MODE;
-  }
-
-  /**
-   * Gets the resolved notify mode for this configuration
-   * 
-   * @returns The notify mode to use
-   */
-  getNotifyMode(): PlaywrightSlackNotifyMode {
-    return ReporterConfig.resolveNotifyMode(this.notifyMode);
-  }
-
-  /**
    * Determines if a notification should be sent based on test results
    * 
    * @param hasFailures - Whether there are any test failures
@@ -93,8 +72,9 @@ export class ReporterConfig {
    * @returns true if notification should be sent
    */
   shouldNotify(hasFailures: boolean, resultStatus: string): boolean {
-    const mode = this.getNotifyMode();
-    if (mode === 'always') return true;
+    if (this.sendNotificationOnSuccess) {
+      return true;
+    }
     return hasFailures || resultStatus !== 'passed';
   }
 
@@ -115,7 +95,7 @@ export class ReporterConfig {
    */
   toObject(): ResolvedReporterOptions {
     return {
-      notifyMode: this.notifyMode,
+      sendNotificationOnSuccess: this.sendNotificationOnSuccess,
       showErrorDetails: this.showErrorDetails,
       errorDetailsInThread: this.errorDetailsInThread,
       splitThreadMessagePerTest: this.splitThreadMessagePerTest,
