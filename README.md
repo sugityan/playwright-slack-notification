@@ -40,9 +40,8 @@ SLACK_BOT_CHANNEL_ID=C1234567890
 - `chat:write.public`（任意: Bot 未参加の public channel に投稿する場合）
 
 Bot 方式を使う場合、Webhook URL (`SLACK_WEBHOOK_URL`) は不要です。
-### 3. 通常通知を送る
 
-以下のように呼び出します。
+### 3. 任意のタイミングで通知を送る場合
 
 ```ts
 import { sendNotification } from '@sugityan/playwright-slack-notification';
@@ -50,42 +49,10 @@ import { sendNotification } from '@sugityan/playwright-slack-notification';
 await sendNotification('E2E tests passed ✅');
 ```
 
-`blocks` / `attachments` を使う場合：
-
-```ts
-await sendNotification('Build finished', {
-  channel: '#ci',
-  blocks: [
-    { type: 'section', text: { type: 'mrkdwn', text: '*Build finished*' } },
-  ],
-  attachments: [{ fallback: 'Build finished' }],
-});
-```
 
 ### 4. Playwright の結果を自動通知する
 
-1) `.env` を読み込めるように `dotenv` をインストールします：
-
-```bash
-npm i -D dotenv
-```
-
-2) この package が提供する Reporter を `playwright.config.ts` に設定します：
-
-```ts
-// playwright.config.ts
-import { defineConfig } from '@playwright/test';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-export default defineConfig({
-  testDir: './tests',
-  // ... 他の設定
-});
-```
-
-#### 4-2. Reporter を設定
+####  Reporter を設定
 
 Reporter を `playwright.config.ts` に設定します：
 
@@ -94,14 +61,10 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['@sugityan/playwright-slack-notification/reporter', {
-      // 失敗時のみ通知（デフォルト）
       notifyMode: 'failure', // 'failure' | 'always'
-
-      // エラー詳細を表示するか（デフォルト: true）
-      // true: スタックトレース含む詳細を表示
-      // false: テスト名とロケーションのみ表示
       showErrorDetails: true,
 
+      
       channel: '#ci',
     }],
   ],
@@ -121,6 +84,7 @@ export default defineConfig({
       notifyMode: 'failure',
       showErrorDetails: true,
       errorDetailsInThread: true,
+      splitThreadMessagePerTest: true, // 各テストごとに個別のスレッドメッセージを投稿
     }],
   ],
 });
@@ -128,19 +92,29 @@ export default defineConfig({
 
 `notifyMode` の指定:
 
-- `failure`: 失敗時のみ Slack 通知
+- `failure`（デフォルト）: 失敗時のみ Slack 通知
 - `always`: 成功/失敗に関わらず Slack 通知
 
 `errorDetailsInThread` の指定:
 
 - `false` (デフォルト): エラー詳細をメイン通知本文に含める
-- `true`: Slack bot user でエラー理由をスレッド投稿する
+- `true`: Slack bot user でエラー詳細をスレッド投稿する
+  - スレッドには各テストの名前、ロケーション、完全なエラー詳細（スタックトレース含む）が表示されます
+
+`splitThreadMessagePerTest` の指定:
+
+- `false` (デフォルト): 全てのエラー詳細を1つのスレッドメッセージに統合
+- `true`: 各失敗テストごとに個別のスレッドメッセージを投稿
+  - 多数のテストが失敗した場合、Slackのメッセージサイズ制限（40,000文字）を超えないようにするために有効
+  - Bot Token方式でのみ使用可能（`errorDetailsInThread: true` と併用）
+  - Webhook方式では無視され、通常の本文表示になります
 
 `showErrorDetails` の指定（Webhook / Bot 共通）:
 
-- `true` (デフォルト): エラーの詳細情報（スタックトレース含む）を表示
-  - Webhook方式: テスト名 + `details:` セクションにコードブロックでエラー全文を表示
-  - Bot Thread方式: メイン投稿はテスト名のみ、スレッドにエラーサマリーを投稿
+- `true` (デフォルト): エラーの詳細情報（スタックトレース、コードスニペット含む）を表示
+  - Webhook方式: テスト名 + `details:` セクションにコードブロックでエラー全文（コードスニペット、行番号付き）を表示
+  - Bot Thread方式: メイン投稿はテスト名のみ、スレッドにエラーサマリー（コードスニペット含む）を投稿
+  - **タイムアウトエラー**: タイムアウトの原因となった操作（例: `page.click()`, `page.waitForSelector()` など）のコードスニペットも含まれます
 - `false`: エラーの詳細を非表示（テスト名とロケーションのみ通知）
   - どちらの方式でもエラー内容は表示されません
 
