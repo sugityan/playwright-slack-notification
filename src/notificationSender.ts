@@ -16,11 +16,8 @@ import { red, validateWebhookUrl } from './utils.ts';
  * Sends a Slack notification using the appropriate method based on configuration
  * 
  * This function automatically determines whether to use:
- * - Bot Token mode with thread posting (if config.canUseBotThread is true)
- * - Webhook mode with inline details (fallback)
- * 
- * Note: When both bot token and webhook URL are configured, bot thread mode takes
- * precedence if errorDetailsInThread is enabled.
+ * - Bot Token mode with thread posting (only if errorDetailsInThread: true is set)
+ * - Webhook mode (default when threads are not needed)
  * 
  * @param config - Reporter configuration
  * @param mainMessage - The main message text to send
@@ -35,18 +32,11 @@ export async function sendNotification(
   threadMessages?: string[],
 ): Promise<void> {
   try {
-    // If errorDetailsInThread is enabled but bot config is missing, do not send via webhook
-    if (config.errorDetailsInThread && !config.canUseBotThread) {
-      return;
-    }
-
-    // Bot thread mode: send main message, then thread details
-    if (config.canUseBotThread && config.botToken && config.botChannel) {
+    if (config.useBotThread) {
       await sendViaBotWithThread(config, mainMessage, threadMessages);
       return;
     }
 
-    // Webhook mode: send inline message
     await sendViaWebhook(config, mainMessage);
   } catch (err) {
     console.warn('PlaywrightSlackReporter: failed to send notification');

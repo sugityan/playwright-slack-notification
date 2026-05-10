@@ -105,7 +105,7 @@ export class PlaywrightSlackReporter implements Reporter {
           maxDetailLines: this.config.maxDetailLines,
           maxDetailChars: this.config.maxDetailChars,
           showErrorDetails: this.config.showErrorDetails,
-          useBotThreadMode: this.config.canUseBotThread,
+          useBotThreadMode: this.config.useBotThread,
           splitThreadMessagePerTest: this.config.splitThreadMessagePerTest,
         }
       );

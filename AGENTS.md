@@ -33,7 +33,7 @@ This package supports two Slack notification modes:
 
 The reporter auto-detects which mode to use from environment variables. Thread posting with `errorDetailsInThread: true` is only available in Bot Token mode.
 
-If both webhook and bot credentials are configured, thread-capable bot behavior should take precedence when thread posting is enabled.
+**Mode selection**: When both webhook and bot credentials are configured, webhook mode is used by default. Bot Token mode with thread posting is only activated when `errorDetailsInThread: true` is explicitly set in the reporter options. This makes webhook the default notification method unless threads are specifically needed.
 
 ## Testing
 
