@@ -69,11 +69,8 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['@sugityan/playwright-slack-notification/reporter', {
-      notifyOnlyFailure: true,
+      sendNotificationOnSuccess: false,
       showErrorDetails: true,
-
-      
-      channel: '#ci',
     }],
   ],
   // ... 他の設定
@@ -89,7 +86,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['@sugityan/playwright-slack-notification/reporter', {
-      notifyMode: 'failure',
+      sendNotificationOnSuccess: false,
       showErrorDetails: true,
       errorDetailsInThread: true,
       splitThreadMessagePerTest: true, // 各テストごとに個別のスレッドメッセージを投稿
@@ -98,10 +95,10 @@ export default defineConfig({
 });
 ```
 
-`notifyMode` の指定:
+`sendNotificationOnSuccess` の指定:
 
-- `failure`（デフォルト）: 失敗時のみ Slack 通知
-- `always`: 成功/失敗に関わらず Slack 通知
+- `false`（デフォルト）: 失敗時のみ Slack 通知
+- `always`: 成功時にも Slack 通知
 
 `errorDetailsInThread` の指定:
 
