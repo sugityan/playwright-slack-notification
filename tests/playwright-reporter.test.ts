@@ -219,37 +219,121 @@ describe('PlaywrightSlackReporter', () => {
     assert.equal(payloads[1].thread_ts, '1742600000.123456');
   });
 
-  it('does not send when errorDetailsInThread is true but bot settings are missing', async () => {
-    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+  it('throws error when errorDetailsInThread is true but SLACK_BOT_TOKEN is missing', () => {
+    delete process.env.SLACK_BOT_TOKEN;
+    process.env.SLACK_BOT_CHANNEL_ID = 'C1234567890';
+
+    assert.throws(
+      () => {
+        new PlaywrightSlackReporter({ errorDetailsInThread: true });
+      },
+      {
+        name: 'Error',
+        message: /errorDetailsInThread is enabled but SLACK_BOT_TOKEN is not set/
+      }
+    );
+  });
+
+  it('throws error when errorDetailsInThread is true but SLACK_BOT_CHANNEL_ID is missing', () => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
+    delete process.env.SLACK_BOT_CHANNEL_ID;
+
+    assert.throws(
+      () => {
+        new PlaywrightSlackReporter({ errorDetailsInThread: true });
+      },
+      {
+        name: 'Error',
+        message: /errorDetailsInThread is enabled but SLACK_BOT_CHANNEL_ID is not set/
+      }
+    );
+  });
+
+  it('throws error when errorDetailsInThread is true but both bot settings are missing', () => {
     delete process.env.SLACK_BOT_TOKEN;
     delete process.env.SLACK_BOT_CHANNEL_ID;
 
-    const payloads: Array<{ text: string; thread_ts?: string }> = [];
-    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-      payloads.push(JSON.parse(String(init?.body ?? '{}')) as { text: string; thread_ts?: string });
+    assert.throws(
+      () => {
+        new PlaywrightSlackReporter({ errorDetailsInThread: true });
+      },
+      {
+        name: 'Error',
+        message: /errorDetailsInThread is enabled but SLACK_BOT_TOKEN and SLACK_BOT_CHANNEL_ID is not set/
+      }
+    );
+  });
+
+  it('uses webhook mode when all credentials exist but errorDetailsInThread is false', async () => {
+    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
+    process.env.SLACK_BOT_CHANNEL_ID = 'C1234567890';
+
+    const fetchCalls: Array<{ url: string; body: unknown }> = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls.push({
+        url: typeof input === 'string' ? input : input.toString(),
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
       return new Response('ok', { status: 200 });
     }) as typeof fetch;
 
-    const reporter = new PlaywrightSlackReporter({ errorDetailsInThread: true });
+    const reporter = new PlaywrightSlackReporter({ errorDetailsInThread: false });
     reporter.onTestEnd?.(
       {
-        titlePath: () => ['chromium', 'inline fallback test'],
+        titlePath: () => ['chromium', 'webhook default test'],
         parent: { project: () => ({ name: 'chromium' }) },
-        location: { file: 'e2e/fallback.spec.ts', line: 2, column: 1 },
+        location: { file: 'e2e/default-mode.spec.ts', line: 10, column: 1 },
       } as any,
       {
         status: 'failed',
         error: {
-          message:
-            'Error: expect(page).toHaveTitle(expected) failed\\nExpected: "Playwright"\\nReceived: "Playwright E2E"',
+          message: 'Error: webhook mode should be used by default',
         },
       } as any,
     );
 
     await reporter.onEnd?.({ status: 'failed' } as any);
 
-    // Should not send any notification when errorDetailsInThread is true but bot config is missing
-    assert.equal(payloads.length, 0);
+    // Should send exactly one notification via webhook
+    assert.equal(fetchCalls.length, 1);
+    // Should use webhook URL, not bot API
+    assert.match(fetchCalls[0].url, /example\.invalid\/webhook/);
+    // Should NOT use bot API URL
+    assert.doesNotMatch(fetchCalls[0].url, /slack\.com\/api/);
+  });
+
+  it('uses webhook mode by default even when bot credentials are present', async () => {
+    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
+    process.env.SLACK_BOT_CHANNEL_ID = 'C1234567890';
+
+    const fetchCalls: Array<{ url: string }> = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push({
+        url: typeof input === 'string' ? input : input.toString(),
+      });
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+
+    // No errorDetailsInThread specified - should default to false
+    const reporter = new PlaywrightSlackReporter();
+    reporter.onTestEnd?.(
+      {
+        titlePath: () => ['chromium', 'implicit default test'],
+        parent: { project: () => ({ name: 'chromium' }) },
+        location: { file: 'e2e/implicit.spec.ts', line: 5, column: 1 },
+      } as any,
+      {
+        status: 'failed',
+        error: { message: 'Error: default should use webhook' },
+      } as any,
+    );
+
+    await reporter.onEnd?.({ status: 'failed' } as any);
+
+    assert.equal(fetchCalls.length, 1);
+    assert.match(fetchCalls[0].url, /example\.invalid\/webhook/);
   });
 
   it('does not include error content when showErrorDetails is false (webhook mode)', async () => {
@@ -530,56 +614,6 @@ describe('PlaywrightSlackReporter', () => {
     assert.doesNotMatch(secondThreadText, /chromium › login test/);
     assert.doesNotMatch(secondThreadText, /e2e\/auth\.spec\.ts/);
     assert.doesNotMatch(secondThreadText, /Login failed/);
-  });
-
-  it('does not send when splitThreadMessagePerTest is true but bot is not configured', async () => {
-    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
-    delete process.env.SLACK_BOT_TOKEN;
-    delete process.env.SLACK_BOT_CHANNEL_ID;
-
-    const payloads: Array<{ text: string }> = [];
-    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-      payloads.push(JSON.parse(String(init?.body ?? '{}')) as { text: string });
-      return new Response('ok', { status: 200 });
-    }) as typeof fetch;
-
-    const reporter = new PlaywrightSlackReporter({
-      errorDetailsInThread: true,
-      splitThreadMessagePerTest: true,
-    });
-    
-    reporter.onTestEnd?.(
-      {
-        titlePath: () => ['chromium', 'first test'],
-        parent: { project: () => ({ name: 'chromium' }) },
-        location: { file: 'e2e/test1.spec.ts', line: 10, column: 1 },
-      } as any,
-      {
-        status: 'failed',
-        error: {
-          message: 'Error: first error',
-        },
-      } as any,
-    );
-    
-    reporter.onTestEnd?.(
-      {
-        titlePath: () => ['firefox', 'second test'],
-        parent: { project: () => ({ name: 'firefox' }) },
-        location: { file: 'e2e/test2.spec.ts', line: 20, column: 1 },
-      } as any,
-      {
-        status: 'failed',
-        error: {
-          message: 'Error: second error',
-        },
-      } as any,
-    );
-
-    await reporter.onEnd?.({ status: 'failed' } as any);
-
-    // Should not send any notification when errorDetailsInThread is true but bot config is missing
-    assert.equal(payloads.length, 0);
   });
 
   it('displays detailed timeout error with code snippet in thread', async () => {

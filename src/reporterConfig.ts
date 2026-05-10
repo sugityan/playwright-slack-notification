@@ -25,7 +25,7 @@ export class ReporterConfig {
   // Computed properties for Slack configuration
   readonly botToken?: string;
   readonly botChannel?: string;
-  readonly canUseBotThread: boolean;
+  readonly useBotThread: boolean;
 
   /**
    * Creates a new ReporterConfig instance with defaults applied
@@ -50,13 +50,18 @@ export class ReporterConfig {
     this.botToken = (options.botToken ?? process.env[ENV_VARS.SLACK_BOT_TOKEN])?.trim();
     this.botChannel = (options.botChannel ?? process.env[ENV_VARS.SLACK_BOT_CHANNEL_ID] ?? this.channel)?.trim();
     
-    // Compute whether bot thread mode is available
-    this.canUseBotThread = this.errorDetailsInThread && !!this.botToken && !!this.botChannel;
-
-    // Error if thread mode is requested but not available
-    if (this.errorDetailsInThread && !this.canUseBotThread) {
-      console.error(red('PlaywrightSlackReporter: errorDetailsInThread is enabled but SLACK_BOT_TOKEN or SLACK_BOT_CHANNEL_ID is not set'));
+    if (this.errorDetailsInThread && (!this.botToken || !this.botChannel)) {
+      const missingParams: string[] = [];
+      if (!this.botToken) missingParams.push('SLACK_BOT_TOKEN');
+      if (!this.botChannel) missingParams.push('SLACK_BOT_CHANNEL_ID');
+      
+      throw new Error(
+        `PlaywrightSlackReporter configuration error: ` +
+        `errorDetailsInThread is enabled but ${missingParams.join(' and ')} is not set. ` +
+        `Please set the required environment variable(s) or disable errorDetailsInThread.`
+      );
     }
+    this.useBotThread = this.errorDetailsInThread && !!this.botToken && !!this.botChannel;
   }
 
   /**

@@ -33,7 +33,7 @@ This package supports two Slack notification modes:
 
 The reporter auto-detects which mode to use from environment variables. Thread posting with `errorDetailsInThread: true` is only available in Bot Token mode.
 
-If both webhook and bot credentials are configured, thread-capable bot behavior should take precedence when thread posting is enabled.
+**Mode selection**: When both webhook and bot credentials are configured, webhook mode is used by default. Bot Token mode with thread posting is only activated when `errorDetailsInThread: true` is explicitly set in the reporter options. This makes webhook the default notification method unless threads are specifically needed.
 
 ## Testing
 
@@ -50,6 +50,45 @@ Mock `globalThis.fetch` in tests and restore it in `afterEach`.
 - No linter or formatter config is installed (`ESLint`, `Prettier`, `Biome` are not present)
 - Use `.ts` extensions in imports
 - TypeScript is strict and uses `NodeNext` module resolution
+
+## Comment policy
+
+**Minimize comments**: Code should be self-explanatory through clear naming and structure.
+
+### When to avoid comments:
+
+- **Do not add inline comments that restate what the code does**
+  - Bad: `// Bot thread mode: ONLY use when errorDetailsInThread is explicitly true`
+  - The conditional `if (config.errorDetailsInThread && config.botToken && config.botChannel)` is clear
+  - Good naming and structure eliminate the need for such comments
+
+- **Do not add comments explaining simple validation or obvious logic**
+  - Bad: `// Set useBotThread flag (only true when errorDetailsInThread is enabled with valid config)`
+  - The code itself: `this.useBotThread = this.errorDetailsInThread && !!this.botToken && !!this.botChannel;`
+  - Good naming makes the comment redundant
+
+### When comments are necessary:
+
+- **JSDoc comments for public functions and exported APIs**
+  - Always add JSDoc to describe function behavior, parameters, return values, and exceptions
+  - Example:
+    ```typescript
+    /**
+     * Sends a Slack notification using the appropriate method based on configuration
+     * 
+     * @param config - Reporter configuration
+     * @param mainMessage - The main message text to send
+     * @throws {SlackApiError} If the Slack API returns an error
+     */
+    export async function sendNotification(config, mainMessage) { ... }
+    ```
+
+- **Complex algorithms that require explanation of the approach**
+- **Non-obvious workarounds for browser/platform quirks**
+- **References to external issues or documentation**
+- **TODO/FIXME markers** (only when necessary and with context)
+
+**Principle**: If you feel an inline comment is needed, first try to improve the code itself through better naming, clearer structure, or refactoring. JSDoc comments for functions are encouraged.
 
 ## Naming rules
 
