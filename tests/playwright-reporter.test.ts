@@ -76,23 +76,7 @@ describe('PlaywrightSlackReporter', () => {
     assert.match(payload.text, /Received: "Playwright E2E"/);
   });
 
-  it('supports always mode via env variable', async () => {
-    process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
-    process.env.PLAYWRIGHT_SLACK_NOTIFY = 'always';
-
-    const calls = { count: 0 };
-    globalThis.fetch = (async () => {
-      calls.count++;
-      return new Response('ok', { status: 200 });
-    }) as typeof fetch;
-
-    const reporter = new PlaywrightSlackReporter();
-    await reporter.onEnd?.({ status: 'passed' } as any);
-
-    assert.equal(calls.count, 1);
-  });
-
-  it('does not send on passed result when notifyMode is failure', async () => {
+  it('does not send on passed result when sendNotificationOnSuccess is false', async () => {
     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
 
     const calls = { count: 0 };
@@ -101,13 +85,13 @@ describe('PlaywrightSlackReporter', () => {
       return new Response('ok', { status: 200 });
     }) as typeof fetch;
 
-    const reporter = new PlaywrightSlackReporter({ notifyMode: 'failure' });
+    const reporter = new PlaywrightSlackReporter({ sendNotificationOnSuccess: false });
     await reporter.onEnd?.({ status: 'passed' } as any);
 
     assert.equal(calls.count, 0);
   });
 
-  it('sends on passed result when notifyMode is always', async () => {
+  it('sends on passed result when sendNotificationOnSuccess is true', async () => {
     process.env.SLACK_WEBHOOK_URL = 'https://example.invalid/webhook';
 
     const calls = { count: 0 };
@@ -116,7 +100,7 @@ describe('PlaywrightSlackReporter', () => {
       return new Response('ok', { status: 200 });
     }) as typeof fetch;
 
-    const reporter = new PlaywrightSlackReporter({ notifyMode: 'always' });
+    const reporter = new PlaywrightSlackReporter({ sendNotificationOnSuccess: true });
     await reporter.onEnd?.({ status: 'passed' } as any);
 
     assert.equal(calls.count, 1);

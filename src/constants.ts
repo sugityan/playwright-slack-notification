@@ -25,7 +25,7 @@ export const DEFAULTS = {
   SHOW_ERROR_DETAILS: true,
   ERROR_DETAILS_IN_THREAD: false,
   SPLIT_THREAD_MESSAGE_PER_TEST: false,
-  NOTIFY_MODE: 'failure' as const,
+  SEND_NOTIFICATION_ON_SUCCESS: false,
 } as const;
 
 /**

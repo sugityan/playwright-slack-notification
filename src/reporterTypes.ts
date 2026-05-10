@@ -1,15 +1,9 @@
 /**
- * Type definitions for the Playwright Slack Reporter
- */
-
-export type PlaywrightSlackNotifyMode = 'failure' | 'always';
-
-/**
  * Configuration options for PlaywrightSlackReporter
  */
 export interface PlaywrightSlackReporterOptions {
-  /** When to send notifications: 'failure' (default) or 'always' */
-  notifyMode?: PlaywrightSlackNotifyMode;
+  /** Whether to send notifications on successful test runs (default: false) */
+  sendNotificationOnSuccess?: boolean;
   
   /** Whether to show error details in messages (default: true) */
   showErrorDetails?: boolean;
@@ -57,7 +51,7 @@ export interface PlaywrightSlackReporterOptions {
  * Resolved configuration with all defaults applied
  */
 export interface ResolvedReporterOptions {
-  notifyMode?: PlaywrightSlackNotifyMode;
+  sendNotificationOnSuccess: boolean;
   showErrorDetails: boolean;
   errorDetailsInThread: boolean;
   splitThreadMessagePerTest: boolean;
