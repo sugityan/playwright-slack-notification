@@ -126,13 +126,3 @@ export default defineConfig({
 **表示例（Webhook方式、`showErrorDetails: true`）:**
 
 <img src="assets/webhookURL_results_example.png" width="600" alt="Webhook通知例">
-
-Slack bot user でスレッド投稿する場合は、以下を設定してください。
-
-```env
-SLACK_BOT_TOKEN=xoxb-...
-```
-
-`SLACK_BOT_TOKEN` が未指定の場合は、エラー詳細は本文表示にフォールバックします。
-
-スレッド投稿は **Bot 方式のときのみ** 利用できます（Webhook 方式では不可）。
