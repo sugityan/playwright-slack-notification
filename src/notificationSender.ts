@@ -62,7 +62,6 @@ async function sendViaBotWithThread(
     throw new Error('Bot token and channel are required for bot thread mode');
   }
 
-  // Send main message
   const mainResponse = await sendSlackBotMessage(
     config.botToken,
     {
@@ -76,7 +75,6 @@ async function sendViaBotWithThread(
     },
   );
 
-  // Send thread details if available
   if (threadMessages && threadMessages.length > 0 && mainResponse.ts) {
     for (const threadMessage of threadMessages) {
       await sendSlackBotMessage(
