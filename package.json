@@ -28,7 +28,16 @@
     "type": "git",
     "url": "git+https://github.com/sugityan/playwright-slack-notification.git"
   },
-  "keywords": [],
+  "keywords": [
+    "playwright",
+    "slack",
+    "reporter",
+    "notification",
+    "testing",
+    "webhook",
+    "bot",
+    "test-results"
+  ],
   "author": "sugityan",
   "license": "MIT",
   "bugs": {
@@ -42,5 +51,16 @@
   },
   "peerDependencies": {
     "@playwright/test": ">=1.40.0"
-  }
+  },
+  "description": "Playwright test reporter that sends notifications to Slack via Webhook or Bot Token",
+  "keywords": [
+    "playwright",
+    "slack",
+    "reporter",
+    "notification",
+    "testing",
+    "webhook",
+    "bot",
+    "test-results"
+  ]
 }
