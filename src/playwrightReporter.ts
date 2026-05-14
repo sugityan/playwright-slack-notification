@@ -20,7 +20,7 @@ export type { PlaywrightSlackReporterOptions } from './reporterTypes.ts';
  * // In playwright.config.ts
  * export default defineConfig({
  *   reporter: [
- *     ['@sugityan/playwright-slack-notification/reporter', {
+ *     ['playwright-slack-notification/reporter', {
  *       notifyMode: 'failure',
  *       showErrorDetails: true,
  *       errorDetailsInThread: true, // Requires bot token
